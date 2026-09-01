@@ -1,0 +1,5 @@
+build/
+cmake-build-*/
+.idea/
+vcpkg_installed/
+CMakeUserPresets.json
