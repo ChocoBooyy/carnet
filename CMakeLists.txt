@@ -11,3 +11,10 @@ if(MSVC)
 endif()
 
 option(CARNET_BUILD_TESTS "Build the core unit tests" ON)
+
+add_subdirectory(core)
+
+if(CARNET_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
