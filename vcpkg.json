@@ -1,7 +1,8 @@
 {
   "name": "carnet",
   "dependencies": [
-    "gtest"
+    "gtest",
+    "sqlite3"
   ],
   "builtin-baseline": "15e5f3820f0370f1ba7150853762cec0688cd396"
 }
