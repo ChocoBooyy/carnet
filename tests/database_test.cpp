@@ -174,5 +174,24 @@ TEST(Database, DataSurvivesReopen) {
     EXPECT_EQ(db.transactionCount(), 3);
 }
 
+TEST(Database, ListsAccounts) {
+    TempDbPath file;
+    auto db = Database::open(file.path());
+    db.importTransactions("Savings", {draft("Transfer", -1000)});
+    db.importTransactions("Current", {draft("Coffee", -320)});
+    db.importTransactions("Current", {draft("Lunch", -1250)});
+    EXPECT_EQ(db.accounts(), (std::vector<std::string>{"Current", "Savings"}));
+}
+
+TEST(Database, TransactionsCarryTheirAccount) {
+    using namespace std::chrono;
+    TempDbPath file;
+    auto db = Database::open(file.path());
+    db.importTransactions("Savings", {draft("Transfer", -1000)});
+    const auto txns = db.transactionsInMonth(2026y / March);
+    ASSERT_EQ(txns.size(), 1u);
+    EXPECT_EQ(txns[0].account, "Savings");
+}
+
 }
 }

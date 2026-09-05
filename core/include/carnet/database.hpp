@@ -37,6 +37,7 @@ struct Category {
 struct Transaction {
     std::int64_t id = 0;
     std::chrono::year_month_day bookedOn;
+    std::string account;
     Cents amount = 0;
     std::string description;
     std::string counterparty;
@@ -59,6 +60,7 @@ public:
 
     int transactionCount() const;
     int accountCount() const;
+    std::vector<std::string> accounts() const;
 
     std::vector<Category> categories() const;
     std::int64_t addCategory(std::string_view name);

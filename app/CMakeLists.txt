@@ -1,0 +1,28 @@
+set(CMAKE_AUTOMOC ON)
+
+add_library(carnet_ui STATIC
+    models/format.cpp
+    models/transaction_filter.cpp
+    models/transaction_table_model.cpp
+)
+
+target_include_directories(carnet_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(carnet_ui PUBLIC carnet_core Qt6::Widgets)
+
+add_executable(carnet WIN32
+    main.cpp
+    app_paths.cpp
+    views/main_window.cpp
+    views/overview_tab.cpp
+    views/transactions_tab.cpp
+    widgets/category_delegate.cpp
+    widgets/month_picker.cpp
+)
+
+target_link_libraries(carnet PRIVATE carnet_ui)
+
+# copy the Qt runtime next to carnet.exe so it starts from the build folder or Explorer
+add_custom_command(TARGET carnet POST_BUILD
+    COMMAND "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_BINS}/windeployqt.exe"
+            --no-translations --no-system-d3d-compiler --no-opengl-sw "$<TARGET_FILE:carnet>"
+    VERBATIM)

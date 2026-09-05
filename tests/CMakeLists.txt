@@ -19,3 +19,5 @@ target_include_directories(carnet_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 
 include(GoogleTest)
 gtest_discover_tests(carnet_tests)
+
+add_subdirectory(qt)

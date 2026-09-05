@@ -12,7 +12,10 @@ endif()
 
 option(CARNET_BUILD_TESTS "Build the core unit tests" ON)
 
+find_package(Qt6 REQUIRED COMPONENTS Widgets)
+
 add_subdirectory(core)
+add_subdirectory(app)
 
 if(CARNET_BUILD_TESTS)
     enable_testing()

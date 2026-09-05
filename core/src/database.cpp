@@ -179,6 +179,15 @@ int Database::accountCount() const {
     return static_cast<int>(stmt.integer(0));
 }
 
+std::vector<std::string> Database::accounts() const {
+    Statement stmt(db_.get(), "SELECT name FROM account ORDER BY name");
+    std::vector<std::string> result;
+    while (stmt.step()) {
+        result.push_back(stmt.text(0));
+    }
+    return result;
+}
+
 std::vector<Category> Database::categories() const {
     Statement stmt(db_.get(), "SELECT id, name FROM category ORDER BY name");
     std::vector<Category> result;
@@ -280,9 +289,10 @@ bool Database::moveRule(std::int64_t id, MoveDirection direction) {
 }
 
 std::vector<Transaction> Database::transactionsInMonth(std::chrono::year_month month) const {
-    Statement stmt(db_.get(), "SELECT id, booked_on, amount_cents, description, counterparty, category_id, "
-                              "category_manual FROM txn WHERE booked_on >= ?1 AND booked_on < ?2 "
-                              "ORDER BY booked_on, id");
+    Statement stmt(db_.get(), "SELECT t.id, t.booked_on, t.amount_cents, t.description, t.counterparty, "
+                              "t.category_id, t.category_manual, a.name FROM txn t "
+                              "JOIN account a ON a.id = t.account_id "
+                              "WHERE t.booked_on >= ?1 AND t.booked_on < ?2 ORDER BY t.booked_on, t.id");
     stmt.bind(1, toIsoString(month / 1)).bind(2, toIsoString((month + std::chrono::months{1}) / 1));
 
     std::vector<Transaction> result;
@@ -301,6 +311,7 @@ std::vector<Transaction> Database::transactionsInMonth(std::chrono::year_month m
             txn.categoryId = stmt.integer(5);
         }
         txn.manual = stmt.integer(6) == 1;
+        txn.account = stmt.text(7);
         result.push_back(std::move(txn));
     }
     return result;
