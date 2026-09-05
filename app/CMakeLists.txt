@@ -1,6 +1,8 @@
 set(CMAKE_AUTOMOC ON)
 
 add_library(carnet_ui STATIC
+    dialogs/column_roles.cpp
+    dialogs/text_decoding.cpp
     models/format.cpp
     models/transaction_filter.cpp
     models/transaction_table_model.cpp
@@ -12,6 +14,7 @@ target_link_libraries(carnet_ui PUBLIC carnet_core Qt6::Widgets)
 add_executable(carnet WIN32
     main.cpp
     app_paths.cpp
+    dialogs/import_dialog.cpp
     views/main_window.cpp
     views/overview_tab.cpp
     views/transactions_tab.cpp

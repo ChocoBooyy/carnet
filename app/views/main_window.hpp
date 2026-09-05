@@ -16,6 +16,8 @@ public:
     explicit MainWindow(Database& db, QWidget* parent = nullptr);
 
 private:
+    void openImport();
+
     Database& db_;
     MonthPicker* monthPicker_;
     TransactionsTab* transactionsTab_;
