@@ -5,6 +5,7 @@ add_library(carnet_core STATIC
     src/date.cpp
     src/csv.cpp
     src/import.cpp
+    src/rules.cpp
     src/statement.cpp
     src/migrations.cpp
     src/database.cpp

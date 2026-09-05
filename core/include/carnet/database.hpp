@@ -1,12 +1,17 @@
 #pragma once
 
+#include <chrono>
+#include <cstdint>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <stdexcept>
+#include <string>
 #include <string_view>
 #include <vector>
 
 #include "carnet/import.hpp"
+#include "carnet/rules.hpp"
 
 struct sqlite3;
 
@@ -22,6 +27,25 @@ struct ImportSummary {
     int alreadyPresent = 0;
 };
 
+struct Category {
+    std::int64_t id = 0;
+    std::string name;
+
+    bool operator==(const Category&) const = default;
+};
+
+struct Transaction {
+    std::int64_t id = 0;
+    std::chrono::year_month_day bookedOn;
+    Cents amount = 0;
+    std::string description;
+    std::string counterparty;
+    std::optional<std::int64_t> categoryId;
+    bool manual = false;
+};
+
+enum class MoveDirection { Up, Down };
+
 class Database {
 public:
     static Database open(const std::filesystem::path& path);
@@ -36,6 +60,22 @@ public:
     int transactionCount() const;
     int accountCount() const;
 
+    std::vector<Category> categories() const;
+    std::int64_t addCategory(std::string_view name);
+    void renameCategory(std::int64_t id, std::string_view name);
+    void deleteCategory(std::int64_t id);
+
+    std::vector<Rule> rules() const;
+    std::int64_t addRule(std::string_view pattern, std::int64_t categoryId);
+    void updateRule(std::int64_t id, std::string_view pattern, std::int64_t categoryId);
+    void deleteRule(std::int64_t id);
+    bool moveRule(std::int64_t id, MoveDirection direction);
+
+    std::vector<Transaction> transactionsInMonth(std::chrono::year_month month) const;
+    void setCategory(std::int64_t txnId, std::optional<std::int64_t> categoryId);
+    void clearManualCategory(std::int64_t txnId);
+    int applyRules();
+
 private:
     struct Closer {
         void operator()(sqlite3* db) const;
@@ -43,6 +83,7 @@ private:
 
     explicit Database(sqlite3* db);
     void migrate();
+    int recategorize();
 
     std::unique_ptr<sqlite3, Closer> db_;
 };
