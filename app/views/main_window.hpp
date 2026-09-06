@@ -17,6 +17,7 @@ public:
 
 private:
     void openImport();
+    void openRules();
 
     Database& db_;
     MonthPicker* monthPicker_;

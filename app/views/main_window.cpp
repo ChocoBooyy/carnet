@@ -5,7 +5,9 @@
 #include <QTabWidget>
 #include <QVBoxLayout>
 
+#include "database_call.hpp"
 #include "dialogs/import_dialog.hpp"
+#include "dialogs/rules_dialog.hpp"
 #include "views/overview_tab.hpp"
 #include "views/transactions_tab.hpp"
 #include "widgets/month_picker.hpp"
@@ -24,6 +26,8 @@ MainWindow::MainWindow(Database& db, QWidget* parent) : QMainWindow(parent), db_
     top->addStretch();
     auto* importButton = new QPushButton(tr("Import CSV..."), central);
     top->addWidget(importButton);
+    auto* rulesButton = new QPushButton(tr("Rules..."), central);
+    top->addWidget(rulesButton);
     layout->addLayout(top);
 
     auto* tabs = new QTabWidget(central);
@@ -38,6 +42,7 @@ MainWindow::MainWindow(Database& db, QWidget* parent) : QMainWindow(parent), db_
 
     connect(monthPicker_, &MonthPicker::monthChanged, transactionsTab_, &TransactionsTab::setMonth);
     connect(importButton, &QPushButton::clicked, this, &MainWindow::openImport);
+    connect(rulesButton, &QPushButton::clicked, this, &MainWindow::openRules);
     transactionsTab_->setMonth(monthPicker_->month());
 }
 
@@ -48,6 +53,15 @@ void MainWindow::openImport() {
         transactionsTab_->reload();
     });
     dialog.exec();
+}
+
+void MainWindow::openRules() {
+    RulesDialog dialog(db_, this);
+    dialog.exec();
+    if (dialog.changed()) {
+        tryDatabase(this, [&] { db_.applyRules(); });
+        transactionsTab_->reload();
+    }
 }
 
 }

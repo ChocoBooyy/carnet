@@ -18,9 +18,12 @@ void TransactionTableModel::setMonth(std::chrono::year_month month) {
 }
 
 void TransactionTableModel::reload() {
+    // query before the reset so a database error leaves the old rows showing instead of a half-reset model
+    auto rows = db_.transactionsInMonth(month_);
+    auto categories = db_.categories();
     beginResetModel();
-    rows_ = db_.transactionsInMonth(month_);
-    categories_ = db_.categories();
+    rows_ = std::move(rows);
+    categories_ = std::move(categories);
     endResetModel();
 }
 

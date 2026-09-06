@@ -15,6 +15,7 @@ add_executable(carnet WIN32
     main.cpp
     app_paths.cpp
     dialogs/import_dialog.cpp
+    dialogs/rules_dialog.cpp
     views/main_window.cpp
     views/overview_tab.cpp
     views/transactions_tab.cpp
