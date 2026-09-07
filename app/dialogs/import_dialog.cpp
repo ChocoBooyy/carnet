@@ -17,6 +17,7 @@
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <ranges>
 
 #include "app_paths.hpp"
 #include "carnet/csv.hpp"
@@ -67,11 +68,15 @@ ImportDialog::ImportDialog(Database& db, QWidget* parent) : QDialog(parent), db_
     settingsRow->addWidget(skipBox_);
     settingsRow->addStretch();
 
+    skipStatusEdit_ = new QLineEdit(this);
+    skipStatusEdit_->setPlaceholderText(tr("for example Refused, needs a Status column"));
+
     auto* form = new QFormLayout;
     form->addRow(tr("File"), fileRow);
     form->addRow(tr("Account"), accountBox_);
     form->addRow(tr("Profile"), profileBox_);
     form->addRow(settingsRow);
+    form->addRow(tr("Skip rows with status"), skipStatusEdit_);
 
     preview_ = new QTableWidget(this);
     preview_->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -106,6 +111,7 @@ ImportDialog::ImportDialog(Database& db, QWidget* parent) : QDialog(parent), db_
     connect(profileBox_, &QComboBox::currentIndexChanged, this, &ImportDialog::profileChosen);
     connect(separatorBox_, &QComboBox::currentIndexChanged, this, &ImportDialog::refreshPreview);
     connect(skipBox_, &QSpinBox::valueChanged, this, &ImportDialog::refreshPreview);
+    connect(skipStatusEdit_, &QLineEdit::textChanged, this, &ImportDialog::updateState);
     connect(accountBox_, &QComboBox::currentTextChanged, this, &ImportDialog::updateState);
     connect(importButton_, &QPushButton::clicked, this, &ImportDialog::runImport);
     connect(closeButton, &QPushButton::clicked, this, &QDialog::accept);
@@ -127,7 +133,24 @@ void ImportDialog::browse() {
     text_ = toUtf8Text(std::string_view(bytes.constData(), static_cast<std::size_t>(bytes.size())));
     pathEdit_->setText(path);
     result_->clear();
+    if (savedProfile() == nullptr) {
+        suggestFromHeader();
+    }
     refreshPreview();
+}
+
+void ImportDialog::suggestFromHeader() {
+    const auto rows = parseCsv(text_, separator());
+    const int headerRow = skipBox_->value() - 1;
+    if (!rows || headerRow < 0 || headerRow >= static_cast<int>(rows->size())) {
+        return;
+    }
+    roles_ = suggestRoles((*rows)[static_cast<std::size_t>(headerRow)].fields);
+    skipStatusEdit_->clear();
+    const auto status = std::ranges::find(roles_, ColumnRole::Status);
+    if (status != roles_.end()) {
+        suggestSkipStatusFrom(static_cast<int>(status - roles_.begin()));
+    }
 }
 
 void ImportDialog::loadProfiles(const QString& select) {
@@ -157,6 +180,7 @@ void ImportDialog::profileChosen() {
         dateFormatEdit_->setText(QString::fromStdString(profile->dateFormat));
         skipBox_->setValue(profile->skipLines);
     }
+    skipStatusEdit_->setText(QString::fromStdString(profile->skipStatus));
     roles_ = rolesFromProfile(*profile, static_cast<int>(roles_.size()));
     refreshPreview();
 }
@@ -189,10 +213,14 @@ void ImportDialog::refreshPreview() {
     preview_->setRowCount(shown + 1);
     for (int c = 0; c < static_cast<int>(roles_.size()); ++c) {
         auto* roleBox = new QComboBox(preview_);
-        roleBox->addItems({tr("(ignore)"), tr("Date"), tr("Amount"), tr("Description"), tr("Counterparty")});
+        roleBox->addItems(
+            {tr("(ignore)"), tr("Date"), tr("Amount"), tr("Description"), tr("Counterparty"), tr("Status")});
         roleBox->setCurrentIndex(static_cast<int>(roles_[static_cast<std::size_t>(c)]));
         connect(roleBox, &QComboBox::currentIndexChanged, this, [this, c](int index) {
             roles_[static_cast<std::size_t>(c)] = static_cast<ColumnRole>(index);
+            if (roles_[static_cast<std::size_t>(c)] == ColumnRole::Status) {
+                suggestSkipStatusFrom(c);
+            }
             updateState();
         });
         preview_->setCellWidget(0, c, roleBox);
@@ -222,9 +250,31 @@ void ImportDialog::updateState() {
         problem = tr("Name the account");
     } else {
         problem = QString::fromStdString(mappingProblem(roles_));
+        if (problem.isEmpty() && !skipStatusEdit_->text().trimmed().isEmpty() &&
+            std::ranges::find(roles_, ColumnRole::Status) == roles_.end()) {
+            problem = tr("Choose the Status column, or clear the status to skip");
+        }
     }
     hint_->setText(problem);
     importButton_->setEnabled(problem.isEmpty());
+}
+
+void ImportDialog::suggestSkipStatusFrom(int column) {
+    // a value typed by hand wins over a guess
+    if (!skipStatusEdit_->text().trimmed().isEmpty()) {
+        return;
+    }
+    const auto rows = parseCsv(text_, separator());
+    if (!rows) {
+        return;
+    }
+    std::vector<std::string> values;
+    for (const CsvRow& row : *rows | std::views::drop(skipBox_->value())) {
+        if (static_cast<std::size_t>(column) < row.fields.size()) {
+            values.push_back(row.fields[static_cast<std::size_t>(column)]);
+        }
+    }
+    skipStatusEdit_->setText(QString::fromStdString(suggestSkipStatus(values)));
 }
 
 char ImportDialog::separator() const {
@@ -246,6 +296,7 @@ ImportProfile ImportDialog::currentProfile() const {
     profile.dateFormat = dateFormatEdit_->text().trimmed().toStdString();
     profile.skipLines = skipBox_->value();
     applyRoles(roles_, profile);
+    profile.skipStatus = skipStatusEdit_->text().trimmed().toStdString();
     return profile;
 }
 
@@ -264,10 +315,10 @@ void ImportDialog::runImport() {
         profile.name = name.toStdString();
     }
 
-    const auto drafts = readStatement(text_, profile);
-    if (!drafts) {
+    const auto statement = readStatement(text_, profile);
+    if (!statement) {
         QStringList lines{tr("Nothing was imported. Fix the profile or the file:")};
-        for (const ParseError& error : drafts.error()) {
+        for (const ParseError& error : statement.error()) {
             lines << QString::fromStdString(error.message);
         }
         result_->setPlainText(lines.join('\n'));
@@ -280,20 +331,26 @@ void ImportDialog::runImport() {
         if (saved == nullptr || *saved != profile) {
             db_.saveProfile(profile);
         }
-        summary = db_.importTransactions(account.toStdString(), *drafts);
+        summary = db_.importTransactions(account.toStdString(), statement->drafts);
     });
     if (!ok) {
         return;
     }
 
-    result_->setPlainText(tr("%1 added, %2 already present").arg(summary.added).arg(summary.alreadyPresent));
+    QString text = tr("%1 added, %2 already present").arg(summary.added).arg(summary.alreadyPresent);
+    if (statement->skipped > 0) {
+        text += tr(", %1 skipped (status %2)")
+                    .arg(statement->skipped)
+                    .arg(QString::fromStdString(profile.skipStatus));
+    }
+    result_->setPlainText(text);
     QSettings settings(settingsPath(), QSettings::IniFormat);
     settings.setValue("import/account", account);
     settings.setValue("import/profile", QString::fromStdString(profile.name));
     loadProfiles(QString::fromStdString(profile.name));
 
-    if (!drafts->empty()) {
-        const auto newest = std::ranges::max(*drafts, {}, &TxnDraft::bookedOn).bookedOn;
+    if (!statement->drafts.empty()) {
+        const auto newest = std::ranges::max(statement->drafts, {}, &TxnDraft::bookedOn).bookedOn;
         emit imported(newest.year() / newest.month());
     }
 }

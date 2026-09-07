@@ -9,6 +9,7 @@
 
 #include "carnet/csv.hpp"
 #include "carnet/date.hpp"
+#include "carnet/rules.hpp"
 
 namespace carnet {
 
@@ -27,18 +28,29 @@ const std::string& field(const CsvRow& row, int column) {
 }
 
 std::size_t requiredColumns(const ImportProfile& profile) {
-    const int highest =
-        std::max({profile.colDate, profile.colAmount, profile.colDesc, profile.colParty.value_or(0)});
+    const int highest = std::max({profile.colDate, profile.colAmount, profile.colDesc,
+                                  profile.colParty.value_or(0), profile.colStatus.value_or(0)});
     return static_cast<std::size_t>(highest) + 1;
 }
 
-std::expected<TxnDraft, ParseError> readRow(const CsvRow& row, const ImportProfile& profile) {
+std::optional<ParseError> widthProblem(const CsvRow& row, const ImportProfile& profile) {
     const std::size_t needed = requiredColumns(profile);
     if (row.fields.size() < needed) {
-        return std::unexpected(
-            atLine(row.line, std::format("expected at least {} columns, got {}", needed, row.fields.size())));
+        return atLine(row.line,
+                      std::format("expected at least {} columns, got {}", needed, row.fields.size()));
     }
+    return std::nullopt;
+}
 
+bool hasSkipStatus(const CsvRow& row, const ImportProfile& profile) {
+    if (!profile.colStatus || profile.skipStatus.empty()) {
+        return false;
+    }
+    return foldText(normalizeText(field(row, *profile.colStatus))) ==
+           foldText(normalizeText(profile.skipStatus));
+}
+
+std::expected<TxnDraft, ParseError> readRow(const CsvRow& row, const ImportProfile& profile) {
     const auto bookedOn = parseDate(field(row, profile.colDate), profile.dateFormat);
     if (!bookedOn) {
         return std::unexpected(atLine(row.line, bookedOn.error().message));
@@ -68,21 +80,30 @@ void numberOccurrences(std::vector<TxnDraft>& drafts) {
 
 }
 
-std::expected<std::vector<TxnDraft>, std::vector<ParseError>> readStatement(std::string_view text,
-                                                                            const ImportProfile& profile) {
+std::expected<StatementRows, std::vector<ParseError>> readStatement(std::string_view text,
+                                                                    const ImportProfile& profile) {
     assert(profile.colDate >= 0 && profile.colAmount >= 0 && profile.colDesc >= 0 &&
-           profile.colParty.value_or(0) >= 0);
+           profile.colParty.value_or(0) >= 0 && profile.colStatus.value_or(0) >= 0);
     const auto rows = parseCsv(text, profile.separator);
     if (!rows) {
         return std::unexpected(std::vector<ParseError>{rows.error()});
     }
 
-    std::vector<TxnDraft> drafts;
+    StatementRows result;
     std::vector<ParseError> errors;
     for (const CsvRow& row : *rows | std::views::drop(std::max(profile.skipLines, 0))) {
+        if (auto problem = widthProblem(row, profile)) {
+            errors.push_back(std::move(*problem));
+            continue;
+        }
+        // a skipped row is never parsed: refused payments can carry amounts or dates that are not real
+        if (hasSkipStatus(row, profile)) {
+            ++result.skipped;
+            continue;
+        }
         auto draft = readRow(row, profile);
         if (draft) {
-            drafts.push_back(std::move(*draft));
+            result.drafts.push_back(std::move(*draft));
         } else {
             errors.push_back(std::move(draft.error()));
         }
@@ -91,8 +112,8 @@ std::expected<std::vector<TxnDraft>, std::vector<ParseError>> readStatement(std:
         return std::unexpected(std::move(errors));
     }
 
-    numberOccurrences(drafts);
-    return drafts;
+    numberOccurrences(result.drafts);
+    return result;
 }
 
 std::string normalizeText(std::string_view text) {

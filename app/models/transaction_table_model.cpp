@@ -84,6 +84,10 @@ QVariant TransactionTableModel::data(const QModelIndex& index, int role) const {
         if (column == CategoryColumn && txn.manual) {
             return tr("Set by hand");
         }
+        // bank descriptions are long and the useful part is often in the middle
+        if (column == DescriptionColumn) {
+            return QString::fromStdString(txn.description);
+        }
         return {};
     default:
         return {};

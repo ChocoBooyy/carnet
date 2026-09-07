@@ -22,6 +22,9 @@ struct ImportProfile {
     int colAmount = 1;
     int colDesc = 2;
     std::optional<int> colParty;
+    std::optional<int> colStatus;
+    // rows whose status matches this (ignoring case and accents) are skipped, e.g. a refused card payment
+    std::string skipStatus;
 
     bool operator==(const ImportProfile&) const = default;
 };
@@ -35,8 +38,13 @@ struct TxnDraft {
     int occurrence = 1;
 };
 
-std::expected<std::vector<TxnDraft>, std::vector<ParseError>> readStatement(std::string_view text,
-                                                                            const ImportProfile& profile);
+struct StatementRows {
+    std::vector<TxnDraft> drafts;
+    int skipped = 0;
+};
+
+std::expected<StatementRows, std::vector<ParseError>> readStatement(std::string_view text,
+                                                                    const ImportProfile& profile);
 
 std::string normalizeText(std::string_view text);
 

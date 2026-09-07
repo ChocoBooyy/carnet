@@ -7,7 +7,7 @@ namespace carnet {
 namespace {
 
 // entry N brings a database to user_version N + 1; never edit an entry that has shipped, add a new one
-constexpr std::array<const char*, 2> scripts{
+constexpr std::array<const char*, 3> scripts{
     R"sql(
 CREATE TABLE account (
   id   INTEGER PRIMARY KEY,
@@ -59,6 +59,10 @@ CREATE INDEX txn_by_category ON txn (category_id);
 
 INSERT INTO category (name) VALUES
   ('Groceries'), ('Rent'), ('Transport'), ('Eating out'), ('Salary'), ('Utilities'), ('Leisure');
+)sql",
+    R"sql(
+ALTER TABLE import_profile ADD COLUMN col_status INTEGER CHECK (col_status IS NULL OR col_status >= 0);
+ALTER TABLE import_profile ADD COLUMN skip_status TEXT NOT NULL DEFAULT '';
 )sql",
 };
 

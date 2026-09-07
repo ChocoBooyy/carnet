@@ -26,13 +26,13 @@ std::vector<TxnDraft> readOk(std::string_view text, const ImportProfile& profile
         }
         return {};
     }
-    return *result;
+    return result->drafts;
 }
 
 std::vector<std::string> readErrors(std::string_view text, const ImportProfile& profile) {
     const auto result = readStatement(text, profile);
     if (result) {
-        ADD_FAILURE() << "read " << result->size() << " drafts";
+        ADD_FAILURE() << "read " << result->drafts.size() << " drafts";
         return {};
     }
     std::vector<std::string> messages;
@@ -153,6 +153,58 @@ TEST(NormalizeText, TrimsAndCollapsesWhitespace) {
     EXPECT_EQ(normalizeText("multi\r\nline"), "multi line");
     EXPECT_EQ(normalizeText("   "), "");
     EXPECT_EQ(normalizeText(""), "");
+}
+
+ImportProfile statusProfile() {
+    ImportProfile profile = bankProfile();
+    profile.colStatus = 4;
+    profile.skipStatus = "Refus\xC3\xA9";
+    return profile;
+}
+
+TEST(ReadStatement, SkipsRowsWithTheSkipStatus) {
+    const auto result = readStatement("Date;Amount;Description;Counterparty;Status\n"
+                                      "14/03/2026;-1,00;A;X;Accept\xC3\xA9\n"
+                                      "15/03/2026;-2,00;B;X;Refus\xC3\xA9\n"
+                                      "16/03/2026;-3,00;C;X;  REFUSE \n",
+                                      statusProfile());
+    ASSERT_TRUE(result.has_value());
+    ASSERT_EQ(result->drafts.size(), 1u);
+    EXPECT_EQ(result->drafts[0].description, "A");
+    EXPECT_EQ(result->skipped, 2);
+}
+
+TEST(ReadStatement, SkippedRowsAreNotParsed) {
+    const auto result = readStatement("Date;Amount;Description;Counterparty;Status\n"
+                                      "14/03/2026;-1,00;A;X;Accept\xC3\xA9\n"
+                                      "31/04/2026;-2,5,0;;X;Refus\xC3\xA9\n",
+                                      statusProfile());
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->drafts.size(), 1u);
+    EXPECT_EQ(result->skipped, 1);
+}
+
+TEST(ReadStatement, StatusColumnCountsForWidth) {
+    const auto errors = readErrors("Date;Amount;Description;Counterparty;Status\n"
+                                   "14/03/2026;-1,00;A;X\n",
+                                   statusProfile());
+    ASSERT_EQ(errors.size(), 1u);
+    EXPECT_EQ(errors[0], "line 2: expected at least 5 columns, got 4");
+}
+
+TEST(ReadStatement, WithoutStatusNothingIsSkipped) {
+    const auto result =
+        readStatement("Date;Amount;Description;Counterparty\n14/03/2026;-1,00;A;X\n", bankProfile());
+    ASSERT_TRUE(result.has_value());
+    EXPECT_EQ(result->skipped, 0);
+
+    ImportProfile emptySkip = statusProfile();
+    emptySkip.skipStatus.clear();
+    const auto kept = readStatement("Date;Amount;Description;Counterparty;Status\n"
+                                    "15/03/2026;-2,00;B;X;Refus\xC3\xA9\n",
+                                    emptySkip);
+    ASSERT_TRUE(kept.has_value());
+    EXPECT_EQ(kept->drafts.size(), 1u);
 }
 
 }

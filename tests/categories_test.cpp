@@ -71,7 +71,7 @@ TEST(Categories, UpgradesVersionOneDatabase) {
     sqlite3_close(raw);
 
     const auto db = Database::open(file.path());
-    EXPECT_EQ(db.schemaVersion(), 2);
+    EXPECT_EQ(db.schemaVersion(), 3);
     EXPECT_EQ(db.transactionCount(), 1);
     EXPECT_EQ(db.categories().size(), 7u);
 

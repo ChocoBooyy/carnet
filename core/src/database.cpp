@@ -82,7 +82,8 @@ bool Database::foreignKeysEnabled() const {
 
 std::vector<ImportProfile> Database::profiles() const {
     Statement stmt(db_.get(), "SELECT name, separator, decimal_mark, date_format, skip_lines, col_date, "
-                              "col_amount, col_desc, col_party FROM import_profile ORDER BY name");
+                              "col_amount, col_desc, col_party, col_status, skip_status FROM import_profile "
+                              "ORDER BY name");
     std::vector<ImportProfile> result;
     while (stmt.step()) {
         ImportProfile profile;
@@ -97,6 +98,10 @@ std::vector<ImportProfile> Database::profiles() const {
         if (!stmt.isNull(8)) {
             profile.colParty = static_cast<int>(stmt.integer(8));
         }
+        if (!stmt.isNull(9)) {
+            profile.colStatus = static_cast<int>(stmt.integer(9));
+        }
+        profile.skipStatus = stmt.text(10);
         result.push_back(std::move(profile));
     }
     return result;
@@ -105,12 +110,14 @@ std::vector<ImportProfile> Database::profiles() const {
 void Database::saveProfile(const ImportProfile& profile) {
     Statement stmt(db_.get(),
                    "INSERT INTO import_profile (name, separator, decimal_mark, date_format, skip_lines, "
-                   "col_date, col_amount, col_desc, col_party) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9) "
+                   "col_date, col_amount, col_desc, col_party, col_status, skip_status) "
+                   "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11) "
                    "ON CONFLICT (name) DO UPDATE SET separator = excluded.separator, "
                    "decimal_mark = excluded.decimal_mark, date_format = excluded.date_format, "
                    "skip_lines = excluded.skip_lines, col_date = excluded.col_date, "
                    "col_amount = excluded.col_amount, col_desc = excluded.col_desc, "
-                   "col_party = excluded.col_party");
+                   "col_party = excluded.col_party, col_status = excluded.col_status, "
+                   "skip_status = excluded.skip_status");
     stmt.bind(1, profile.name)
         .bind(2, std::string_view(&profile.separator, 1))
         .bind(3, std::string_view(&profile.decimalMark, 1))
@@ -124,6 +131,12 @@ void Database::saveProfile(const ImportProfile& profile) {
     } else {
         stmt.bindNull(9);
     }
+    if (profile.colStatus) {
+        stmt.bind(10, std::int64_t{*profile.colStatus});
+    } else {
+        stmt.bindNull(10);
+    }
+    stmt.bind(11, profile.skipStatus);
     stmt.step();
 }
 

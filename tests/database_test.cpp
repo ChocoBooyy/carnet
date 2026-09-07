@@ -16,7 +16,7 @@ namespace {
 TEST(Database, CreatesSchemaOnFirstOpen) {
     TempDbPath file;
     const auto db = Database::open(file.path());
-    EXPECT_EQ(db.schemaVersion(), 2);
+    EXPECT_EQ(db.schemaVersion(), 3);
 }
 
 TEST(Database, ReopenKeepsVersion) {
@@ -25,7 +25,7 @@ TEST(Database, ReopenKeepsVersion) {
         const auto db = Database::open(file.path());
     }
     const auto db = Database::open(file.path());
-    EXPECT_EQ(db.schemaVersion(), 2);
+    EXPECT_EQ(db.schemaVersion(), 3);
 }
 
 TEST(Database, RefusesNewerDatabase) {
@@ -69,6 +69,8 @@ TEST(Database, ProfileRoundTrip) {
     belfius.colDate = 1;
     belfius.colAmount = 4;
     belfius.colDesc = 2;
+    belfius.colStatus = 6;
+    belfius.skipStatus = "Refus\xC3\xA9";
     db.saveProfile(kbc);
     db.saveProfile(belfius);
 

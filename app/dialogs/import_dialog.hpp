@@ -34,6 +34,8 @@ private:
     void profileChosen();
     void refreshPreview();
     void updateState();
+    void suggestSkipStatusFrom(int column);
+    void suggestFromHeader();
     char separator() const;
     ImportProfile currentProfile() const;
     const ImportProfile* savedProfile() const;
@@ -52,6 +54,7 @@ private:
     QComboBox* decimalBox_;
     QLineEdit* dateFormatEdit_;
     QSpinBox* skipBox_;
+    QLineEdit* skipStatusEdit_;
     QTableWidget* preview_;
     QLabel* hint_;
     QPlainTextEdit* result_;

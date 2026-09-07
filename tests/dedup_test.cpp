@@ -26,14 +26,14 @@ ImportProfile statementProfile() {
 }
 
 ImportSummary importFile(Database& db, std::string_view name) {
-    const auto drafts = readStatement(readData(name), statementProfile());
-    if (!drafts) {
-        for (const ParseError& error : drafts.error()) {
+    const auto statement = readStatement(readData(name), statementProfile());
+    if (!statement) {
+        for (const ParseError& error : statement.error()) {
             ADD_FAILURE() << name << ": " << error.message;
         }
         return {};
     }
-    return db.importTransactions("Current account", *drafts);
+    return db.importTransactions("Current account", statement->drafts);
 }
 
 TEST(Dedup, IdenticalRowsInOneFileAreKept) {

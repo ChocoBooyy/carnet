@@ -27,6 +27,7 @@ private slots:
     void automaticHandsBack();
     void noCategorySticks();
     void setDataReportsDatabaseErrors();
+    void descriptionTooltipShowsFullText();
 
 private:
     std::filesystem::path dbPath() const;
@@ -151,6 +152,14 @@ void TransactionTableModelTest::setDataReportsDatabaseErrors() {
     QSignalSpy errors(&model, &TransactionTableModel::errorOccurred);
     QVERIFY(!model.setData(model.index(1, TransactionTableModel::CategoryColumn), qint64(999)));
     QCOMPARE(errors.count(), 1);
+}
+
+void TransactionTableModelTest::descriptionTooltipShowsFullText() {
+    TransactionTableModel model(*db_);
+    model.setMonth(2026y / March);
+    QCOMPARE(model.index(0, TransactionTableModel::DescriptionColumn).data(Qt::ToolTipRole).toString(),
+             QString("Salary March"));
+    QVERIFY(!model.index(0, TransactionTableModel::AmountColumn).data(Qt::ToolTipRole).isValid());
 }
 
 QTEST_MAIN(TransactionTableModelTest)
