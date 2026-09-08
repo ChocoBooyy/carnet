@@ -46,7 +46,9 @@ signals:
 private:
     void reloadRow(int row);
     QString displayText(const Transaction& txn, int column) const;
+    const Category* findCategory(std::optional<std::int64_t> id) const;
     QString categoryName(std::optional<std::int64_t> id) const;
+    bool leftOutOfTotals(const Transaction& txn) const;
 
     Database& db_;
     std::chrono::year_month month_;

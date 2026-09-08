@@ -202,10 +202,10 @@ std::vector<std::string> Database::accounts() const {
 }
 
 std::vector<Category> Database::categories() const {
-    Statement stmt(db_.get(), "SELECT id, name FROM category ORDER BY name");
+    Statement stmt(db_.get(), "SELECT id, name, in_totals FROM category ORDER BY name");
     std::vector<Category> result;
     while (stmt.step()) {
-        result.push_back({stmt.integer(0), stmt.text(1)});
+        result.push_back({stmt.integer(0), stmt.text(1), stmt.integer(2) != 0});
     }
     return result;
 }
@@ -219,6 +219,14 @@ void Database::renameCategory(std::int64_t id, std::string_view name) {
     Statement(db_.get(), "UPDATE category SET name = ?2 WHERE id = ?1")
         .bind(1, id)
         .bind(2, normalizeText(name))
+        .step();
+    expectOneChange(db_.get(), "category", id);
+}
+
+void Database::setCategoryInTotals(std::int64_t id, bool inTotals) {
+    Statement(db_.get(), "UPDATE category SET in_totals = ?2 WHERE id = ?1")
+        .bind(1, id)
+        .bind(2, std::int64_t{inTotals ? 1 : 0})
         .step();
     expectOneChange(db_.get(), "category", id);
 }

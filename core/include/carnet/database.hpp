@@ -30,6 +30,8 @@ struct ImportSummary {
 struct Category {
     std::int64_t id = 0;
     std::string name;
+    // false for money that only moves between his own accounts, so totals do not count it twice
+    bool inTotals = true;
 
     bool operator==(const Category&) const = default;
 };
@@ -66,6 +68,7 @@ public:
     std::int64_t addCategory(std::string_view name);
     void renameCategory(std::int64_t id, std::string_view name);
     void deleteCategory(std::int64_t id);
+    void setCategoryInTotals(std::int64_t id, bool inTotals);
 
     std::vector<Rule> rules() const;
     std::int64_t addRule(std::string_view pattern, std::int64_t categoryId);

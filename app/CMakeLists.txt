@@ -2,6 +2,7 @@ set(CMAKE_AUTOMOC ON)
 
 add_library(carnet_ui STATIC
     dialogs/column_roles.cpp
+    dialogs/rules_dialog.cpp
     dialogs/text_decoding.cpp
     models/format.cpp
     models/transaction_filter.cpp
@@ -15,7 +16,6 @@ add_executable(carnet WIN32
     main.cpp
     app_paths.cpp
     dialogs/import_dialog.cpp
-    dialogs/rules_dialog.cpp
     views/main_window.cpp
     views/overview_tab.cpp
     views/transactions_tab.cpp

@@ -10,6 +10,7 @@
 #include <QListWidget>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
@@ -103,13 +104,21 @@ QWidget* RulesDialog::buildCategoriesTab() {
     side->addWidget(rename);
     side->addWidget(remove);
     side->addStretch();
+    auto* hint = new QLabel(tr("Checked categories count in the monthly totals. Uncheck money that only "
+                               "moves between your own accounts."),
+                            page);
+    hint->setWordWrap(true);
+    auto* listColumn = new QVBoxLayout;
+    listColumn->addWidget(categoryList_, 1);
+    listColumn->addWidget(hint);
     auto* layout = new QHBoxLayout(page);
-    layout->addWidget(categoryList_, 1);
+    layout->addLayout(listColumn, 1);
     layout->addLayout(side);
 
     connect(add, &QPushButton::clicked, this, &RulesDialog::addCategory);
     connect(rename, &QPushButton::clicked, this, &RulesDialog::renameCategory);
     connect(remove, &QPushButton::clicked, this, &RulesDialog::deleteCategory);
+    connect(categoryList_, &QListWidget::itemChanged, this, &RulesDialog::inTotalsToggled);
     return page;
 }
 
@@ -124,12 +133,15 @@ void RulesDialog::reload() {
     }
 
     ruleCategoryBox_->clear();
+    const QSignalBlocker blocker(categoryList_);
     categoryList_->clear();
     for (const Category& category : categories_) {
         const QString name = QString::fromStdString(category.name);
         ruleCategoryBox_->addItem(name, qint64(category.id));
         auto* item = new QListWidgetItem(name, categoryList_);
         item->setData(Qt::UserRole, qint64(category.id));
+        item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
+        item->setCheckState(category.inTotals ? Qt::Checked : Qt::Unchecked);
     }
     ruleList_->clear();
     for (const Rule& rule : rules_) {
@@ -159,6 +171,18 @@ void RulesDialog::edit(auto&& call) {
         status_->clear();
     }
     reload();
+}
+
+void RulesDialog::inTotalsToggled(QListWidgetItem* item) {
+    const std::int64_t id = item->data(Qt::UserRole).toLongLong();
+    const bool inTotals = item->checkState() == Qt::Checked;
+    if (tryDatabase(this, [&] { db_.setCategoryInTotals(id, inTotals); })) {
+        changed_ = true;
+        status_->clear();
+        return;
+    }
+    // put the box back as the database has it; queued, since reloading deletes the item this signal is about
+    QMetaObject::invokeMethod(this, &RulesDialog::reload, Qt::QueuedConnection);
 }
 
 void RulesDialog::addRule() {

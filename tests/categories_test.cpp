@@ -26,7 +26,7 @@ TEST(Categories, DefaultsExist) {
     TempDbPath file;
     const auto db = Database::open(file.path());
     EXPECT_EQ(categoryNames(db), (std::vector<std::string>{"Eating out", "Groceries", "Leisure", "Rent",
-                                                           "Salary", "Transport", "Utilities"}));
+                                                           "Salary", "Transfers", "Transport", "Utilities"}));
 }
 
 TEST(Categories, AddRenameDelete) {
@@ -37,7 +37,7 @@ TEST(Categories, AddRenameDelete) {
     db.renameCategory(id, "Health care");
     EXPECT_EQ(categoryId(db, "Health care"), id);
     db.deleteCategory(id);
-    EXPECT_EQ(db.categories().size(), 7u);
+    EXPECT_EQ(db.categories().size(), 8u);
 }
 
 TEST(Categories, DuplicateNameRejectedIgnoringCase) {
@@ -46,7 +46,7 @@ TEST(Categories, DuplicateNameRejectedIgnoringCase) {
     EXPECT_THROW(db.addCategory("groceries"), DatabaseError);
     EXPECT_THROW(db.renameCategory(categoryId(db, "Rent"), "SALARY"), DatabaseError);
     EXPECT_THROW(db.addCategory("   "), DatabaseError);
-    EXPECT_EQ(db.categories().size(), 7u);
+    EXPECT_EQ(db.categories().size(), 8u);
 }
 
 TEST(Categories, UnknownIdsThrow) {
@@ -71,14 +71,71 @@ TEST(Categories, UpgradesVersionOneDatabase) {
     sqlite3_close(raw);
 
     const auto db = Database::open(file.path());
-    EXPECT_EQ(db.schemaVersion(), 3);
+    EXPECT_EQ(db.schemaVersion(), 4);
     EXPECT_EQ(db.transactionCount(), 1);
-    EXPECT_EQ(db.categories().size(), 7u);
+    EXPECT_EQ(db.categories().size(), 8u);
 
     const auto txns = db.transactionsInMonth(std::chrono::year{2026} / std::chrono::March);
     ASSERT_EQ(txns.size(), 1u);
     EXPECT_EQ(txns[0].categoryId, std::nullopt);
     EXPECT_FALSE(txns[0].manual);
+}
+
+bool inTotals(const Database& db, std::string_view name) {
+    for (const Category& category : db.categories()) {
+        if (category.name == name) {
+            return category.inTotals;
+        }
+    }
+    ADD_FAILURE() << "no category " << name;
+    return false;
+}
+
+TEST(Categories, TransfersStayOutOfTotals) {
+    TempDbPath file;
+    const auto db = Database::open(file.path());
+    EXPECT_FALSE(inTotals(db, "Transfers"));
+    EXPECT_TRUE(inTotals(db, "Groceries"));
+    EXPECT_TRUE(inTotals(db, "Salary"));
+}
+
+TEST(Categories, InTotalsPersists) {
+    TempDbPath file;
+    {
+        auto db = Database::open(file.path());
+        db.setCategoryInTotals(categoryId(db, "Leisure"), false);
+        db.setCategoryInTotals(categoryId(db, "Transfers"), true);
+    }
+    const auto db = Database::open(file.path());
+    EXPECT_FALSE(inTotals(db, "Leisure"));
+    EXPECT_TRUE(inTotals(db, "Transfers"));
+}
+
+TEST(Categories, NewCategoriesCountInTotals) {
+    TempDbPath file;
+    auto db = Database::open(file.path());
+    db.addCategory("Health");
+    EXPECT_TRUE(inTotals(db, "Health"));
+    EXPECT_THROW(db.setCategoryInTotals(999, false), DatabaseError);
+}
+
+TEST(Categories, UpgradeKeepsOwnTransfersCategory) {
+    TempDbPath file;
+    sqlite3* raw = nullptr;
+    ASSERT_EQ(sqlite3_open(file.path().string().c_str(), &raw), SQLITE_OK);
+    for (int i = 0; i < 3; ++i) {
+        ASSERT_EQ(sqlite3_exec(raw, migrations()[static_cast<std::size_t>(i)], nullptr, nullptr, nullptr),
+                  SQLITE_OK);
+    }
+    ASSERT_EQ(sqlite3_exec(raw, "PRAGMA user_version = 3; INSERT INTO category (name) VALUES ('transfers');",
+                           nullptr, nullptr, nullptr),
+              SQLITE_OK);
+    sqlite3_close(raw);
+
+    const auto db = Database::open(file.path());
+    EXPECT_EQ(db.schemaVersion(), 4);
+    EXPECT_EQ(db.categories().size(), 8u);
+    EXPECT_FALSE(inTotals(db, "transfers"));
 }
 
 std::vector<std::string> rulePatterns(const Database& db) {

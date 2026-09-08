@@ -1,5 +1,6 @@
 #include <QBrush>
 #include <QFont>
+#include <QPalette>
 #include <QSignalSpy>
 #include <QTemporaryDir>
 #include <QTest>
@@ -28,6 +29,7 @@ private slots:
     void noCategorySticks();
     void setDataReportsDatabaseErrors();
     void descriptionTooltipShowsFullText();
+    void greysRowsLeftOutOfTotals();
 
 private:
     std::filesystem::path dbPath() const;
@@ -160,6 +162,21 @@ void TransactionTableModelTest::descriptionTooltipShowsFullText() {
     QCOMPARE(model.index(0, TransactionTableModel::DescriptionColumn).data(Qt::ToolTipRole).toString(),
              QString("Salary March"));
     QVERIFY(!model.index(0, TransactionTableModel::AmountColumn).data(Qt::ToolTipRole).isValid());
+}
+
+void TransactionTableModelTest::greysRowsLeftOutOfTotals() {
+    db_->setCategory(db_->transactionsInMonth(2026y / March)[0].id, category("Transfers"));
+    TransactionTableModel model(*db_);
+    model.setMonth(2026y / March);
+    const QColor grey = QPalette().color(QPalette::Disabled, QPalette::Text);
+    for (int column = 0; column < TransactionTableModel::ColumnCount; ++column) {
+        QCOMPARE(model.index(0, column).data(Qt::ForegroundRole).value<QBrush>().color(), grey);
+    }
+    QVERIFY(model.index(0, TransactionTableModel::DescriptionColumn)
+                .data(Qt::ToolTipRole)
+                .toString()
+                .contains("Salary March"));
+    QVERIFY(!model.index(1, TransactionTableModel::DescriptionColumn).data(Qt::ForegroundRole).isValid());
 }
 
 QTEST_MAIN(TransactionTableModelTest)

@@ -11,6 +11,7 @@ class QComboBox;
 class QLabel;
 class QLineEdit;
 class QListWidget;
+class QListWidgetItem;
 
 namespace carnet {
 
@@ -35,6 +36,7 @@ private:
     void addCategory();
     void renameCategory();
     void deleteCategory();
+    void inTotalsToggled(QListWidgetItem* item);
     std::optional<std::int64_t> selectedId(const QListWidget* list) const;
     QString categoryName(std::int64_t id) const;
     void edit(auto&& call);

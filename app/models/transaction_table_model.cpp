@@ -2,6 +2,9 @@
 
 #include <QBrush>
 #include <QFont>
+#include <QPalette>
+
+#include <algorithm>
 
 #include "carnet/date.hpp"
 #include "models/format.hpp"
@@ -64,6 +67,9 @@ QVariant TransactionTableModel::data(const QModelIndex& index, int role) const {
         }
         return displayText(txn, column);
     case Qt::ForegroundRole:
+        if (leftOutOfTotals(txn)) {
+            return QBrush(QPalette().color(QPalette::Disabled, QPalette::Text));
+        }
         if (column == AmountColumn && txn.amount > 0) {
             return QBrush(QColor(0x1b, 0x7f, 0x3a));
         }
@@ -174,16 +180,22 @@ QString TransactionTableModel::displayText(const Transaction& txn, int column) c
     }
 }
 
-QString TransactionTableModel::categoryName(std::optional<std::int64_t> id) const {
+const Category* TransactionTableModel::findCategory(std::optional<std::int64_t> id) const {
     if (!id) {
-        return {};
+        return nullptr;
     }
-    for (const Category& category : categories_) {
-        if (category.id == *id) {
-            return QString::fromStdString(category.name);
-        }
-    }
-    return {};
+    const auto found = std::ranges::find(categories_, *id, &Category::id);
+    return found == categories_.end() ? nullptr : &*found;
+}
+
+QString TransactionTableModel::categoryName(std::optional<std::int64_t> id) const {
+    const Category* category = findCategory(id);
+    return category == nullptr ? QString() : QString::fromStdString(category->name);
+}
+
+bool TransactionTableModel::leftOutOfTotals(const Transaction& txn) const {
+    const Category* category = findCategory(txn.categoryId);
+    return category != nullptr && !category->inTotals;
 }
 
 }
