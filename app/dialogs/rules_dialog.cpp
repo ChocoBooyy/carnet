@@ -16,7 +16,9 @@
 
 #include <algorithm>
 
+#include "carnet/money.hpp"
 #include "database_call.hpp"
+#include "models/format.hpp"
 
 namespace carnet {
 
@@ -108,9 +110,22 @@ QWidget* RulesDialog::buildCategoriesTab() {
                                "moves between your own accounts."),
                             page);
     hint->setWordWrap(true);
+    budgetEdit_ = new QLineEdit(page);
+    budgetEdit_->setObjectName("budgetEdit");
+    budgetEdit_->setPlaceholderText(tr("No budget"));
+    budgetButton_ = new QPushButton(tr("Set budget"), page);
+    budgetButton_->setObjectName("setBudget");
+    budgetHint_ = new QLabel(page);
+    budgetHint_->setObjectName("budgetHint");
+    auto* budgetRow = new QHBoxLayout;
+    budgetRow->addWidget(new QLabel(tr("Monthly budget"), page));
+    budgetRow->addWidget(budgetEdit_, 1);
+    budgetRow->addWidget(budgetButton_);
     auto* listColumn = new QVBoxLayout;
     listColumn->addWidget(categoryList_, 1);
     listColumn->addWidget(hint);
+    listColumn->addLayout(budgetRow);
+    listColumn->addWidget(budgetHint_);
     auto* layout = new QHBoxLayout(page);
     layout->addLayout(listColumn, 1);
     layout->addLayout(side);
@@ -119,6 +134,9 @@ QWidget* RulesDialog::buildCategoriesTab() {
     connect(rename, &QPushButton::clicked, this, &RulesDialog::renameCategory);
     connect(remove, &QPushButton::clicked, this, &RulesDialog::deleteCategory);
     connect(categoryList_, &QListWidget::itemChanged, this, &RulesDialog::inTotalsToggled);
+    connect(categoryList_, &QListWidget::currentRowChanged, this, &RulesDialog::categorySelected);
+    connect(budgetButton_, &QPushButton::clicked, this, &RulesDialog::setBudget);
+    connect(budgetEdit_, &QLineEdit::returnPressed, this, &RulesDialog::setBudget);
     return page;
 }
 
@@ -138,7 +156,9 @@ void RulesDialog::reload() {
     for (const Category& category : categories_) {
         const QString name = QString::fromStdString(category.name);
         ruleCategoryBox_->addItem(name, qint64(category.id));
-        auto* item = new QListWidgetItem(name, categoryList_);
+        const QString label =
+            category.budget ? tr("%1 (%2 a month)").arg(name, formatCents(*category.budget)) : name;
+        auto* item = new QListWidgetItem(label, categoryList_);
         item->setData(Qt::UserRole, qint64(category.id));
         item->setFlags(item->flags() | Qt::ItemIsUserCheckable);
         item->setCheckState(category.inTotals ? Qt::Checked : Qt::Unchecked);
@@ -153,6 +173,7 @@ void RulesDialog::reload() {
     }
     ruleList_->setCurrentRow(std::min(ruleRow, ruleList_->count() - 1));
     categoryList_->setCurrentRow(std::min(categoryRow, categoryList_->count() - 1));
+    categorySelected();
 }
 
 void RulesDialog::ruleSelected() {
@@ -179,10 +200,46 @@ void RulesDialog::inTotalsToggled(QListWidgetItem* item) {
     if (tryDatabase(this, [&] { db_.setCategoryInTotals(id, inTotals); })) {
         changed_ = true;
         status_->clear();
+    }
+    // queued, since reloading deletes the item this signal is about; it also shows a cleared budget
+    // or puts the box back as the database has it
+    QMetaObject::invokeMethod(this, &RulesDialog::reload, Qt::QueuedConnection);
+}
+
+void RulesDialog::categorySelected() {
+    budgetHint_->clear();
+    const auto id = selectedId(categoryList_);
+    const auto found = id ? std::ranges::find(categories_, *id, &Category::id) : categories_.end();
+    const bool editable = found != categories_.end() && found->inTotals;
+    budgetEdit_->setEnabled(editable);
+    budgetButton_->setEnabled(editable);
+    budgetEdit_->setText(editable && found->budget ? formatAmount(*found->budget) : QString());
+}
+
+void RulesDialog::setBudget() {
+    const auto id = selectedId(categoryList_);
+    if (!id) {
         return;
     }
-    // put the box back as the database has it; queued, since reloading deletes the item this signal is about
-    QMetaObject::invokeMethod(this, &RulesDialog::reload, Qt::QueuedConnection);
+    const std::string text = budgetEdit_->text().trimmed().toStdString();
+    std::optional<Cents> budget;
+    if (!text.empty()) {
+        // a comma is the usual mark here; a dot is accepted for people who type 12.50
+        auto amount = parseAmount(text, ',');
+        if (!amount) {
+            amount = parseAmount(text, '.');
+        }
+        if (!amount) {
+            budgetHint_->setText(tr("Not an amount: %1").arg(budgetEdit_->text()));
+            return;
+        }
+        if (*amount <= 0) {
+            budgetHint_->setText(tr("A budget must be more than zero"));
+            return;
+        }
+        budget = *amount;
+    }
+    edit([&] { db_.setCategoryBudget(*id, budget); });
 }
 
 void RulesDialog::addRule() {

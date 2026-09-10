@@ -12,6 +12,7 @@ class QLabel;
 class QLineEdit;
 class QListWidget;
 class QListWidgetItem;
+class QPushButton;
 
 namespace carnet {
 
@@ -37,6 +38,8 @@ private:
     void renameCategory();
     void deleteCategory();
     void inTotalsToggled(QListWidgetItem* item);
+    void categorySelected();
+    void setBudget();
     std::optional<std::int64_t> selectedId(const QListWidget* list) const;
     QString categoryName(std::int64_t id) const;
     void edit(auto&& call);
@@ -51,6 +54,9 @@ private:
     QComboBox* ruleCategoryBox_;
     QLabel* status_;
     QListWidget* categoryList_;
+    QLineEdit* budgetEdit_;
+    QPushButton* budgetButton_;
+    QLabel* budgetHint_;
 };
 
 }

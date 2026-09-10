@@ -6,7 +6,7 @@
 
 namespace carnet {
 
-QString formatCents(Cents cents) {
+QString formatAmount(Cents cents) {
     // the magnitude is taken as unsigned so the most negative value does not overflow
     const bool negative = cents < 0;
     const std::uint64_t magnitude =
@@ -17,7 +17,11 @@ QString formatCents(Cents cents) {
         euros.insert(i, u' ');
     }
     const QString decimals = QString("%1").arg(magnitude % 100, 2, 10, QChar(u'0'));
-    return QString("%1%2,%3 ").arg(negative ? QString("-") : QString(), euros, decimals) + QChar(0x20AC);
+    return QString("%1%2,%3").arg(negative ? QString("-") : QString(), euros, decimals);
+}
+
+QString formatCents(Cents cents) {
+    return formatAmount(cents) + u' ' + QChar(0x20AC);
 }
 
 QString formatDate(std::chrono::year_month_day date) {

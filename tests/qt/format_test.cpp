@@ -15,6 +15,7 @@ private slots:
     void cents();
     void dates();
     void months();
+    void amounts();
 };
 
 void FormatTest::cents_data() {
@@ -44,6 +45,11 @@ void FormatTest::dates() {
 
 void FormatTest::months() {
     QCOMPARE(carnet::formatMonth(2026y / March), QString("March 2026"));
+}
+
+void FormatTest::amounts() {
+    QCOMPARE(carnet::formatAmount(35000), QString("350,00"));
+    QCOMPARE(carnet::formatAmount(-123456789), QString("-1 234 567,89"));
 }
 
 QTEST_MAIN(FormatTest)

@@ -16,7 +16,7 @@ namespace {
 TEST(Database, CreatesSchemaOnFirstOpen) {
     TempDbPath file;
     const auto db = Database::open(file.path());
-    EXPECT_EQ(db.schemaVersion(), 4);
+    EXPECT_EQ(db.schemaVersion(), 5);
 }
 
 TEST(Database, ReopenKeepsVersion) {
@@ -25,7 +25,7 @@ TEST(Database, ReopenKeepsVersion) {
         const auto db = Database::open(file.path());
     }
     const auto db = Database::open(file.path());
-    EXPECT_EQ(db.schemaVersion(), 4);
+    EXPECT_EQ(db.schemaVersion(), 5);
 }
 
 TEST(Database, RefusesNewerDatabase) {

@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "carnet/import.hpp"
+#include "carnet/overview.hpp"
 #include "carnet/rules.hpp"
 
 struct sqlite3;
@@ -32,6 +33,7 @@ struct Category {
     std::string name;
     // false for money that only moves between his own accounts, so totals do not count it twice
     bool inTotals = true;
+    std::optional<Cents> budget;
 
     bool operator==(const Category&) const = default;
 };
@@ -69,6 +71,7 @@ public:
     void renameCategory(std::int64_t id, std::string_view name);
     void deleteCategory(std::int64_t id);
     void setCategoryInTotals(std::int64_t id, bool inTotals);
+    void setCategoryBudget(std::int64_t id, std::optional<Cents> budget);
 
     std::vector<Rule> rules() const;
     std::int64_t addRule(std::string_view pattern, std::int64_t categoryId);
@@ -80,6 +83,10 @@ public:
     void setCategory(std::int64_t txnId, std::optional<std::int64_t> categoryId);
     void clearManualCategory(std::int64_t txnId);
     int applyRules();
+
+    MonthOverview monthOverview(std::chrono::year_month month) const;
+    // exactly `count` months ending at `last`, oldest first; empty months are zeros
+    std::vector<MonthTotals> monthlyTotals(std::chrono::year_month last, int count) const;
 
 private:
     struct Closer {

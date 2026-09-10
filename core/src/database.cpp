@@ -2,6 +2,8 @@
 
 #include <sqlite3.h>
 
+#include <algorithm>
+#include <cassert>
 #include <format>
 #include <utility>
 
@@ -12,6 +14,16 @@
 namespace carnet {
 
 namespace {
+
+// every in-totals category's net for each month, plus each uncategorized transaction on its own;
+// a positive row is income and a negative row is spending
+constexpr const char* monthNets = "SELECT substr(t.booked_on, 1, 7) AS month, SUM(t.amount_cents) AS net "
+                                  "FROM txn t JOIN category c ON c.id = t.category_id "
+                                  "WHERE c.in_totals = 1 AND t.booked_on >= ?1 AND t.booked_on < ?2 "
+                                  "GROUP BY 1, t.category_id "
+                                  "UNION ALL "
+                                  "SELECT substr(booked_on, 1, 7), amount_cents FROM txn "
+                                  "WHERE category_id IS NULL AND booked_on >= ?1 AND booked_on < ?2";
 
 class SqlTransaction {
 public:
@@ -202,10 +214,14 @@ std::vector<std::string> Database::accounts() const {
 }
 
 std::vector<Category> Database::categories() const {
-    Statement stmt(db_.get(), "SELECT id, name, in_totals FROM category ORDER BY name");
+    Statement stmt(db_.get(), "SELECT id, name, in_totals, monthly_budget FROM category ORDER BY name");
     std::vector<Category> result;
     while (stmt.step()) {
-        result.push_back({stmt.integer(0), stmt.text(1), stmt.integer(2) != 0});
+        Category category{stmt.integer(0), stmt.text(1), stmt.integer(2) != 0, std::nullopt};
+        if (!stmt.isNull(3)) {
+            category.budget = stmt.integer(3);
+        }
+        result.push_back(std::move(category));
     }
     return result;
 }
@@ -224,11 +240,27 @@ void Database::renameCategory(std::int64_t id, std::string_view name) {
 }
 
 void Database::setCategoryInTotals(std::int64_t id, bool inTotals) {
-    Statement(db_.get(), "UPDATE category SET in_totals = ?2 WHERE id = ?1")
+    // a category left out of totals never shows a bar, so a budget on it would be invisible
+    Statement(db_.get(), "UPDATE category SET in_totals = ?2, "
+                         "monthly_budget = CASE WHEN ?2 = 1 THEN monthly_budget END WHERE id = ?1")
         .bind(1, id)
         .bind(2, std::int64_t{inTotals ? 1 : 0})
         .step();
     expectOneChange(db_.get(), "category", id);
+}
+
+void Database::setCategoryBudget(std::int64_t id, std::optional<Cents> budget) {
+    Statement stmt(db_.get(), "UPDATE category SET monthly_budget = ?2 WHERE id = ?1 AND in_totals = 1");
+    stmt.bind(1, id);
+    if (budget) {
+        stmt.bind(2, *budget);
+    } else {
+        stmt.bindNull(2);
+    }
+    stmt.step();
+    if (sqlite3_changes(db_.get()) != 1) {
+        throw DatabaseError(std::format("category {} not found or left out of totals", id));
+    }
 }
 
 void Database::deleteCategory(std::int64_t id) {
@@ -406,6 +438,62 @@ int Database::recategorize() {
         update.reset();
     }
     return static_cast<int>(changes.size());
+}
+
+std::vector<MonthTotals> Database::monthlyTotals(std::chrono::year_month last, int count) const {
+    assert(count > 0);
+    const std::chrono::year_month first = last - std::chrono::months{count - 1};
+    std::vector<MonthTotals> result;
+    for (int i = 0; i < count; ++i) {
+        result.push_back({first + std::chrono::months{i}, 0, 0});
+    }
+    Statement stmt(db_.get(), std::format("SELECT month, SUM(MAX(net, 0)), -SUM(MIN(net, 0)) "
+                                          "FROM ({}) GROUP BY month",
+                                          monthNets));
+    stmt.bind(1, toIsoString(first / 1)).bind(2, toIsoString((last + std::chrono::months{1}) / 1));
+    while (stmt.step()) {
+        const auto day = parseDate(stmt.text(0) + "-01", "yyyy-MM-dd");
+        if (!day) {
+            throw DatabaseError(day.error().message);
+        }
+        const auto slot = std::ranges::find(result, day->year() / day->month(), &MonthTotals::month);
+        slot->income = stmt.integer(1);
+        slot->spent = stmt.integer(2);
+    }
+    return result;
+}
+
+MonthOverview Database::monthOverview(std::chrono::year_month month) const {
+    const MonthTotals totals = monthlyTotals(month, 1).front();
+    MonthOverview overview{totals.income, totals.spent, {}};
+
+    Statement stmt(db_.get(), "SELECT c.id, c.name, c.monthly_budget, -SUM(t.amount_cents) FROM txn t "
+                              "JOIN category c ON c.id = t.category_id "
+                              "WHERE c.in_totals = 1 AND t.booked_on >= ?1 AND t.booked_on < ?2 "
+                              "GROUP BY c.id HAVING SUM(t.amount_cents) < 0 "
+                              "UNION ALL "
+                              "SELECT NULL, NULL, NULL, -SUM(amount_cents) FROM txn "
+                              "WHERE category_id IS NULL AND amount_cents < 0 "
+                              "AND booked_on >= ?1 AND booked_on < ?2 HAVING COUNT(*) > 0");
+    stmt.bind(1, toIsoString(month / 1)).bind(2, toIsoString((month + std::chrono::months{1}) / 1));
+    while (stmt.step()) {
+        CategorySpend line;
+        if (stmt.isNull(0)) {
+            line.name = "Uncategorized";
+        } else {
+            line.categoryId = stmt.integer(0);
+            line.name = stmt.text(1);
+            if (!stmt.isNull(2)) {
+                line.budget = stmt.integer(2);
+            }
+        }
+        line.spent = stmt.integer(3);
+        overview.categories.push_back(std::move(line));
+    }
+    std::ranges::sort(overview.categories, [](const CategorySpend& a, const CategorySpend& b) {
+        return a.spent != b.spent ? a.spent > b.spent : a.name < b.name;
+    });
+    return overview;
 }
 
 }

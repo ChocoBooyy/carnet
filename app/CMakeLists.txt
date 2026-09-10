@@ -7,6 +7,9 @@ add_library(carnet_ui STATIC
     models/format.cpp
     models/transaction_filter.cpp
     models/transaction_table_model.cpp
+    views/overview_tab.cpp
+    widgets/budget_bars.cpp
+    widgets/trend_chart.cpp
 )
 
 target_include_directories(carnet_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -17,7 +20,6 @@ add_executable(carnet WIN32
     app_paths.cpp
     dialogs/import_dialog.cpp
     views/main_window.cpp
-    views/overview_tab.cpp
     views/transactions_tab.cpp
     widgets/category_delegate.cpp
     widgets/month_picker.cpp

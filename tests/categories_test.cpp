@@ -3,6 +3,7 @@
 #include <sqlite3.h>
 
 #include <chrono>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -71,7 +72,7 @@ TEST(Categories, UpgradesVersionOneDatabase) {
     sqlite3_close(raw);
 
     const auto db = Database::open(file.path());
-    EXPECT_EQ(db.schemaVersion(), 4);
+    EXPECT_EQ(db.schemaVersion(), 5);
     EXPECT_EQ(db.transactionCount(), 1);
     EXPECT_EQ(db.categories().size(), 8u);
 
@@ -133,9 +134,72 @@ TEST(Categories, UpgradeKeepsOwnTransfersCategory) {
     sqlite3_close(raw);
 
     const auto db = Database::open(file.path());
-    EXPECT_EQ(db.schemaVersion(), 4);
+    EXPECT_EQ(db.schemaVersion(), 5);
     EXPECT_EQ(db.categories().size(), 8u);
     EXPECT_FALSE(inTotals(db, "transfers"));
+}
+
+std::optional<Cents> budgetOf(const Database& db, std::string_view name) {
+    for (const Category& category : db.categories()) {
+        if (category.name == name) {
+            return category.budget;
+        }
+    }
+    ADD_FAILURE() << "no category " << name;
+    return std::nullopt;
+}
+
+TEST(Budgets, RoundTripAndClear) {
+    TempDbPath file;
+    {
+        auto db = Database::open(file.path());
+        EXPECT_EQ(budgetOf(db, "Groceries"), std::nullopt);
+        db.setCategoryBudget(categoryId(db, "Groceries"), 35000);
+    }
+    auto db = Database::open(file.path());
+    EXPECT_EQ(budgetOf(db, "Groceries"), 35000);
+    db.setCategoryBudget(categoryId(db, "Groceries"), std::nullopt);
+    EXPECT_EQ(budgetOf(db, "Groceries"), std::nullopt);
+}
+
+TEST(Budgets, RejectsBadValues) {
+    TempDbPath file;
+    auto db = Database::open(file.path());
+    const auto groceries = categoryId(db, "Groceries");
+    EXPECT_THROW(db.setCategoryBudget(groceries, 0), DatabaseError);
+    EXPECT_THROW(db.setCategoryBudget(groceries, -500), DatabaseError);
+    EXPECT_THROW(db.setCategoryBudget(999, 1000), DatabaseError);
+    EXPECT_THROW(db.setCategoryBudget(categoryId(db, "Transfers"), 1000), DatabaseError);
+    EXPECT_EQ(budgetOf(db, "Groceries"), std::nullopt);
+}
+
+TEST(Budgets, LeavingTotalsClearsTheBudget) {
+    TempDbPath file;
+    auto db = Database::open(file.path());
+    const auto leisure = categoryId(db, "Leisure");
+    db.setCategoryBudget(leisure, 8000);
+    db.setCategoryInTotals(leisure, true);
+    EXPECT_EQ(budgetOf(db, "Leisure"), 8000);
+    db.setCategoryInTotals(leisure, false);
+    EXPECT_EQ(budgetOf(db, "Leisure"), std::nullopt);
+}
+
+TEST(Budgets, UpgradeFromVersionFourHasNoBudgets) {
+    TempDbPath file;
+    sqlite3* raw = nullptr;
+    ASSERT_EQ(sqlite3_open(file.path().string().c_str(), &raw), SQLITE_OK);
+    for (int i = 0; i < 4; ++i) {
+        ASSERT_EQ(sqlite3_exec(raw, migrations()[static_cast<std::size_t>(i)], nullptr, nullptr, nullptr),
+                  SQLITE_OK);
+    }
+    ASSERT_EQ(sqlite3_exec(raw, "PRAGMA user_version = 4;", nullptr, nullptr, nullptr), SQLITE_OK);
+    sqlite3_close(raw);
+
+    const auto db = Database::open(file.path());
+    EXPECT_EQ(db.schemaVersion(), 5);
+    for (const Category& category : db.categories()) {
+        EXPECT_EQ(category.budget, std::nullopt) << category.name;
+    }
 }
 
 std::vector<std::string> rulePatterns(const Database& db) {

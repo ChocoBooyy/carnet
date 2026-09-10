@@ -7,6 +7,7 @@
 namespace carnet {
 
 class MonthPicker;
+class OverviewTab;
 class TransactionsTab;
 
 class MainWindow : public QMainWindow {
@@ -21,6 +22,7 @@ private:
 
     Database& db_;
     MonthPicker* monthPicker_;
+    OverviewTab* overviewTab_;
     TransactionsTab* transactionsTab_;
 };
 

@@ -31,7 +31,8 @@ MainWindow::MainWindow(Database& db, QWidget* parent) : QMainWindow(parent), db_
     layout->addLayout(top);
 
     auto* tabs = new QTabWidget(central);
-    tabs->addTab(new OverviewTab(tabs), tr("Overview"));
+    overviewTab_ = new OverviewTab(db_, tabs);
+    tabs->addTab(overviewTab_, tr("Overview"));
     transactionsTab_ = new TransactionsTab(db_, tabs);
     tabs->addTab(transactionsTab_, tr("Transactions"));
     tabs->setCurrentWidget(transactionsTab_);
@@ -41,9 +42,17 @@ MainWindow::MainWindow(Database& db, QWidget* parent) : QMainWindow(parent), db_
     resize(1000, 640);
 
     connect(monthPicker_, &MonthPicker::monthChanged, transactionsTab_, &TransactionsTab::setMonth);
+    connect(monthPicker_, &MonthPicker::monthChanged, overviewTab_, &OverviewTab::setMonth);
+    // category edits happen in the Transactions tab, so coming back to the Overview picks them up
+    connect(tabs, &QTabWidget::currentChanged, this, [this, tabs](int index) {
+        if (tabs->widget(index) == overviewTab_) {
+            overviewTab_->reload();
+        }
+    });
     connect(importButton, &QPushButton::clicked, this, &MainWindow::openImport);
     connect(rulesButton, &QPushButton::clicked, this, &MainWindow::openRules);
     transactionsTab_->setMonth(monthPicker_->month());
+    overviewTab_->setMonth(monthPicker_->month());
 }
 
 void MainWindow::openImport() {
@@ -51,6 +60,7 @@ void MainWindow::openImport() {
     connect(&dialog, &ImportDialog::imported, this, [this](std::chrono::year_month month) {
         monthPicker_->setMonth(month);
         transactionsTab_->reload();
+        overviewTab_->reload();
     });
     dialog.exec();
 }
@@ -61,6 +71,7 @@ void MainWindow::openRules() {
     if (dialog.changed()) {
         tryDatabase(this, [&] { db_.applyRules(); });
         transactionsTab_->reload();
+        overviewTab_->reload();
     }
 }
 
