@@ -3,6 +3,8 @@
 #include <QScrollBar>
 #include <QTest>
 
+#include <cstdlib>
+
 #include "widgets/budget_bars.hpp"
 #include "widgets/chart_colors.hpp"
 
@@ -40,6 +42,7 @@ private slots:
     void emptyShowsMessage();
     void hugeValuesStayInside();
     void fillsScrollAreaAndScrollsOnlyWhenNeeded();
+    void uncategorizedVisibleInDarkMode();
 };
 
 void BudgetBarsTest::heightFollowsRows() {
@@ -96,6 +99,26 @@ void BudgetBarsTest::fillsScrollAreaAndScrollsOnlyWhenNeeded() {
     bars->setRows(many);
     QCoreApplication::processEvents();
     QVERIFY(area.verticalScrollBar()->isVisible());
+}
+
+void BudgetBarsTest::uncategorizedVisibleInDarkMode() {
+    // colors close to the Windows 11 dark theme, where Mid and Midlight are nearly the same grey
+    QPalette dark;
+    dark.setColor(QPalette::Base, QColor(0x2d, 0x2d, 0x2d));
+    dark.setColor(QPalette::Window, QColor(0x2d, 0x2d, 0x2d));
+    dark.setColor(QPalette::Text, QColor(0xff, 0xff, 0xff));
+    dark.setColor(QPalette::Midlight, QColor(0x33, 0x33, 0x33));
+    dark.setColor(QPalette::Mid, QColor(0x2f, 0x2f, 0x2f));
+    dark.setColor(QPalette::PlaceholderText, QColor(0x9d, 0x9d, 0x9d));
+    BudgetBars bars;
+    bars.setPalette(dark);
+    bars.setRows({{std::nullopt, "Uncategorized", 100, std::nullopt}});
+    const QImage image = render(bars);
+    const int y = image.height() / 2;
+    const QColor filled = image.pixelColor(BudgetBars::nameWidth + BudgetBars::gap + 2, y);
+    const QColor track = dark.color(QPalette::Midlight);
+    QVERIFY2(std::abs(filled.lightness() - track.lightness()) > 60,
+             qPrintable(QString("bar %1 on track %2").arg(filled.name(), track.name())));
 }
 
 QTEST_MAIN(BudgetBarsTest)

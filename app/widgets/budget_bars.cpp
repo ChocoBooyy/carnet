@@ -60,7 +60,8 @@ void BudgetBars::paintEvent(QPaintEvent*) {
         if (over) {
             fill = overBudgetColor();
         } else if (!row.categoryId) {
-            fill = palette().color(QPalette::Mid);
+            // Mid sits right next to Midlight in dark themes; placeholder grey stands out in both
+            fill = palette().color(QPalette::PlaceholderText);
         }
 
         painter.fillRect(track, palette().color(QPalette::Midlight));

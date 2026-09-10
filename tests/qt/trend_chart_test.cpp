@@ -37,6 +37,7 @@ class TrendChartTest : public QObject {
 private slots:
     void drawsSpentAndIncome();
     void allZerosDrawNothing();
+    void incomeReadableInDarkMode();
 };
 
 void TrendChartTest::drawsSpentAndIncome() {
@@ -45,9 +46,9 @@ void TrendChartTest::drawsSpentAndIncome() {
     const QImage image = render(chart);
     const QColor spent = chart.palette().color(QPalette::Highlight);
     QVERIFY(slotHas(image, 2, 0, spent));
-    QVERIFY(!slotHas(image, 2, 0, carnet::incomeColor()));
+    QVERIFY(!slotHas(image, 2, 0, carnet::incomeColor(chart.palette())));
     QVERIFY(slotHas(image, 2, 1, spent));
-    QVERIFY(slotHas(image, 2, 1, carnet::incomeColor()));
+    QVERIFY(slotHas(image, 2, 1, carnet::incomeColor(chart.palette())));
 }
 
 void TrendChartTest::allZerosDrawNothing() {
@@ -55,9 +56,17 @@ void TrendChartTest::allZerosDrawNothing() {
     chart.setMonths({{2026y / August, 0, 0}, {2026y / September, 0, 0}}, 2026y / September);
     const QImage image = render(chart);
     QVERIFY(!slotHas(image, 1, 0, chart.palette().color(QPalette::Highlight)));
-    QVERIFY(!slotHas(image, 1, 0, carnet::incomeColor()));
+    QVERIFY(!slotHas(image, 1, 0, carnet::incomeColor(chart.palette())));
     chart.setMonths({}, 2026y / September);
     render(chart);
+}
+
+void TrendChartTest::incomeReadableInDarkMode() {
+    QPalette dark;
+    dark.setColor(QPalette::Base, QColor(0x2d, 0x2d, 0x2d));
+    const QColor income = carnet::incomeColor(dark);
+    QVERIFY2(income.lightness() - 0x2d > 60, qPrintable(income.name()));
+    QCOMPARE(carnet::incomeColor(QPalette(QColor(0xf0, 0xf0, 0xf0))), QColor(0x1b, 0x7f, 0x3a));
 }
 
 QTEST_MAIN(TrendChartTest)

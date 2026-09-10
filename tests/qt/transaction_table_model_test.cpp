@@ -1,5 +1,6 @@
 #include <QBrush>
 #include <QFont>
+#include <QGuiApplication>
 #include <QPalette>
 #include <QSignalSpy>
 #include <QTemporaryDir>
@@ -30,6 +31,7 @@ private slots:
     void setDataReportsDatabaseErrors();
     void descriptionTooltipShowsFullText();
     void greysRowsLeftOutOfTotals();
+    void incomeReadableInDarkMode();
 
 private:
     std::filesystem::path dbPath() const;
@@ -177,6 +179,20 @@ void TransactionTableModelTest::greysRowsLeftOutOfTotals() {
                 .toString()
                 .contains("Salary March"));
     QVERIFY(!model.index(1, TransactionTableModel::DescriptionColumn).data(Qt::ForegroundRole).isValid());
+}
+
+void TransactionTableModelTest::incomeReadableInDarkMode() {
+    const QPalette original = QGuiApplication::palette();
+    QPalette dark = original;
+    dark.setColor(QPalette::Base, QColor(0x2d, 0x2d, 0x2d));
+    QGuiApplication::setPalette(dark);
+    TransactionTableModel model(*db_);
+    model.setMonth(2026y / March);
+    const QColor income =
+        model.index(0, TransactionTableModel::AmountColumn).data(Qt::ForegroundRole).value<QBrush>().color();
+    QGuiApplication::setPalette(original);
+    QVERIFY2(income.lightness() - dark.color(QPalette::Base).lightness() > 60, qPrintable(income.name()));
+    QVERIFY(income.green() > income.red());
 }
 
 QTEST_MAIN(TransactionTableModelTest)

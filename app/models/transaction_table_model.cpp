@@ -2,12 +2,14 @@
 
 #include <QBrush>
 #include <QFont>
+#include <QGuiApplication>
 #include <QPalette>
 
 #include <algorithm>
 
 #include "carnet/date.hpp"
 #include "models/format.hpp"
+#include "widgets/chart_colors.hpp"
 
 namespace carnet {
 
@@ -71,7 +73,7 @@ QVariant TransactionTableModel::data(const QModelIndex& index, int role) const {
             return QBrush(QPalette().color(QPalette::Disabled, QPalette::Text));
         }
         if (column == AmountColumn && txn.amount > 0) {
-            return QBrush(QColor(0x1b, 0x7f, 0x3a));
+            return QBrush(incomeColor(QGuiApplication::palette()));
         }
         return {};
     case Qt::TextAlignmentRole:

@@ -56,7 +56,7 @@ void TrendChart::paintEvent(QPaintEvent*) {
         const int income = barHeight(month.income);
         painter.fillRect(QRect(centre - barWidth, chartBottom - spent, barWidth, spent),
                          palette().color(QPalette::Highlight));
-        painter.fillRect(QRect(centre, chartBottom - income, barWidth, income), incomeColor());
+        painter.fillRect(QRect(centre, chartBottom - income, barWidth, income), incomeColor(palette()));
 
         QFont font = painter.font();
         font.setBold(month.month == selected_);

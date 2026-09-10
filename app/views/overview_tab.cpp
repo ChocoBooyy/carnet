@@ -38,8 +38,7 @@ OverviewTab::OverviewTab(Database& db, QWidget* parent) : QWidget(parent), db_(d
     bars_ = new BudgetBars(this);
     auto* scroll = new QScrollArea(this);
     scroll->setFrameShape(QFrame::NoFrame);
-    // the bars shrink and elide names, so only a long category list needs scrolling; without this a
-    // stale widget size could keep both scrollbars showing each other
+    // the bars shrink and elide names, so only a long category list ever needs scrolling
     scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     scroll->setWidgetResizable(true);
     scroll->setWidget(bars_);
