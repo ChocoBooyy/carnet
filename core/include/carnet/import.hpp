@@ -46,6 +46,4 @@ struct StatementRows {
 std::expected<StatementRows, std::vector<ParseError>> readStatement(std::string_view text,
                                                                     const ImportProfile& profile);
 
-std::string normalizeText(std::string_view text);
-
 }

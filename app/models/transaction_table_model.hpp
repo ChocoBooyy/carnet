@@ -51,7 +51,7 @@ private:
     bool leftOutOfTotals(const Transaction& txn) const;
 
     Database& db_;
-    std::chrono::year_month month_;
+    std::chrono::year_month month_{};
     std::vector<Transaction> rows_;
     std::vector<Category> categories_;
 };

@@ -8,6 +8,7 @@
 #include <utility>
 
 #include "carnet/date.hpp"
+#include "carnet/text.hpp"
 #include "migrations.hpp"
 #include "statement.hpp"
 
@@ -50,6 +51,11 @@ private:
     sqlite3* db_;
     bool committed_ = false;
 };
+
+// ?1 and ?2 become the first day of `first` and the first day after `last`, for booked_on ranges
+void bindMonths(Statement& stmt, std::chrono::year_month first, std::chrono::year_month last) {
+    stmt.bind(1, toIsoString(first / 1)).bind(2, toIsoString((last + std::chrono::months{1}) / 1));
+}
 
 void expectOneChange(sqlite3* db, std::string_view what, std::int64_t id) {
     if (sqlite3_changes(db) != 1) {
@@ -346,7 +352,7 @@ std::vector<Transaction> Database::transactionsInMonth(std::chrono::year_month m
                               "t.category_id, t.category_manual, a.name FROM txn t "
                               "JOIN account a ON a.id = t.account_id "
                               "WHERE t.booked_on >= ?1 AND t.booked_on < ?2 ORDER BY t.booked_on, t.id");
-    stmt.bind(1, toIsoString(month / 1)).bind(2, toIsoString((month + std::chrono::months{1}) / 1));
+    bindMonths(stmt, month, month);
 
     std::vector<Transaction> result;
     while (stmt.step()) {
@@ -450,7 +456,7 @@ std::vector<MonthTotals> Database::monthlyTotals(std::chrono::year_month last, i
     Statement stmt(db_.get(), std::format("SELECT month, SUM(MAX(net, 0)), -SUM(MIN(net, 0)) "
                                           "FROM ({}) GROUP BY month",
                                           monthNets));
-    stmt.bind(1, toIsoString(first / 1)).bind(2, toIsoString((last + std::chrono::months{1}) / 1));
+    bindMonths(stmt, first, last);
     while (stmt.step()) {
         const auto day = parseDate(stmt.text(0) + "-01", "yyyy-MM-dd");
         if (!day) {
@@ -475,12 +481,10 @@ MonthOverview Database::monthOverview(std::chrono::year_month month) const {
                               "SELECT NULL, NULL, NULL, -SUM(amount_cents) FROM txn "
                               "WHERE category_id IS NULL AND amount_cents < 0 "
                               "AND booked_on >= ?1 AND booked_on < ?2 HAVING COUNT(*) > 0");
-    stmt.bind(1, toIsoString(month / 1)).bind(2, toIsoString((month + std::chrono::months{1}) / 1));
+    bindMonths(stmt, month, month);
     while (stmt.step()) {
         CategorySpend line;
-        if (stmt.isNull(0)) {
-            line.name = "Uncategorized";
-        } else {
+        if (!stmt.isNull(0)) {
             line.categoryId = stmt.integer(0);
             line.name = stmt.text(1);
             if (!stmt.isNull(2)) {

@@ -2,6 +2,7 @@
 
 #include <QComboBox>
 
+#include "database_call.hpp"
 #include "models/transaction_table_model.hpp"
 
 namespace carnet {
@@ -12,9 +13,7 @@ CategoryDelegate::CategoryDelegate(Database& db, QObject* parent) : QStyledItemD
 QWidget* CategoryDelegate::createEditor(QWidget* parent, const QStyleOptionViewItem&,
                                         const QModelIndex&) const {
     std::vector<Category> categories;
-    try {
-        categories = db_.categories();
-    } catch (const DatabaseError&) {
+    if (!tryDatabase(parent, [&] { categories = db_.categories(); })) {
         return nullptr;
     }
 

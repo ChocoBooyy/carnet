@@ -112,7 +112,7 @@ void BudgetBarsTest::uncategorizedVisibleInDarkMode() {
     dark.setColor(QPalette::PlaceholderText, QColor(0x9d, 0x9d, 0x9d));
     BudgetBars bars;
     bars.setPalette(dark);
-    bars.setRows({{std::nullopt, "Uncategorized", 100, std::nullopt}});
+    bars.setRows({{std::nullopt, "", 100, std::nullopt}});
     const QImage image = render(bars);
     const int y = image.height() / 2;
     const QColor filled = image.pixelColor(BudgetBars::nameWidth + BudgetBars::gap + 2, y);

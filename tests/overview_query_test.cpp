@@ -87,7 +87,7 @@ TEST_F(OverviewQuery, HandCalculatedMonth) {
         {categoryId(db_, "Groceries"), "Groceries", 30000, 35000},
         {categoryId(db_, "Eating out"), "Eating out", 18800, 15000},
         {categoryId(db_, "Transport"), "Transport", 7400, std::nullopt},
-        {std::nullopt, "Uncategorized", 1250, std::nullopt},
+        {std::nullopt, "", 1250, std::nullopt},
     };
     EXPECT_EQ(overview.categories, expected);
 }

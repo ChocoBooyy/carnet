@@ -70,8 +70,10 @@ void BudgetBars::paintEvent(QPaintEvent*) {
                          fill);
 
         painter.setPen(palette().color(QPalette::Text));
-        painter.drawText(nameRect, Qt::AlignLeft | Qt::AlignVCenter,
-                         metrics.elidedText(QString::fromStdString(row.name), Qt::ElideRight, nameWidth));
+        painter.drawText(
+            nameRect, Qt::AlignLeft | Qt::AlignVCenter,
+            metrics.elidedText(row.categoryId ? QString::fromStdString(row.name) : tr("Uncategorized"),
+                               Qt::ElideRight, nameWidth));
         const QString amount = row.budget
                                    ? tr("%1 / %2").arg(formatCents(row.spent), formatCents(*row.budget))
                                    : formatCents(row.spent);

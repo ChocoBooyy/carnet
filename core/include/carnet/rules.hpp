@@ -17,8 +17,6 @@ struct Rule {
     bool operator==(const Rule&) const = default;
 };
 
-std::string foldText(std::string_view text);
-
 // rules are tried in the order given; callers pass them in priority order
 std::optional<std::int64_t> matchCategory(std::span<const Rule> rules, std::string_view description,
                                           std::string_view counterparty);

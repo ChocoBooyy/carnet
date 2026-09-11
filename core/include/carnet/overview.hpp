@@ -12,7 +12,7 @@ namespace carnet {
 
 struct CategorySpend {
     std::optional<std::int64_t> categoryId; // empty for uncategorized money
-    std::string name;
+    std::string name;                       // empty for uncategorized money; the app names it
     Cents spent = 0;
     std::optional<Cents> budget;
 

@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "carnet/rules.hpp"
+#include "carnet/text.hpp"
 
 namespace carnet {
 namespace {

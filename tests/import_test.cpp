@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "carnet/import.hpp"
+#include "carnet/text.hpp"
 
 namespace carnet {
 namespace {

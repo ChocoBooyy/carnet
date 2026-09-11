@@ -1,6 +1,6 @@
 #include "models/transaction_filter.hpp"
 
-#include "carnet/rules.hpp"
+#include "carnet/text.hpp"
 #include "models/transaction_table_model.hpp"
 
 namespace carnet {

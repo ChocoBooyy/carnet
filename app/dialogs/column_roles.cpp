@@ -5,7 +5,7 @@
 #include <format>
 #include <utility>
 
-#include "carnet/rules.hpp"
+#include "carnet/text.hpp"
 
 namespace carnet {
 

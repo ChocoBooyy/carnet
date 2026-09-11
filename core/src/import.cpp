@@ -9,15 +9,11 @@
 
 #include "carnet/csv.hpp"
 #include "carnet/date.hpp"
-#include "carnet/rules.hpp"
+#include "carnet/text.hpp"
 
 namespace carnet {
 
 namespace {
-
-bool isSpace(char c) {
-    return c == ' ' || c == '\t' || c == '\r' || c == '\n';
-}
 
 ParseError atLine(int line, std::string_view message) {
     return ParseError{std::format("line {}: {}", line, message)};
@@ -113,23 +109,6 @@ std::expected<StatementRows, std::vector<ParseError>> readStatement(std::string_
     }
 
     numberOccurrences(result.drafts);
-    return result;
-}
-
-std::string normalizeText(std::string_view text) {
-    std::string result;
-    bool pendingSpace = false;
-    for (const char c : text) {
-        if (isSpace(c)) {
-            pendingSpace = !result.empty();
-            continue;
-        }
-        if (pendingSpace) {
-            result += ' ';
-            pendingSpace = false;
-        }
-        result += c;
-    }
     return result;
 }
 
