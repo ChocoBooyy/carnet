@@ -10,6 +10,7 @@ add_library(carnet_core STATIC
     src/statement.cpp
     src/migrations.cpp
     src/database.cpp
+    src/export.cpp
 )
 
 target_include_directories(carnet_core PUBLIC include)

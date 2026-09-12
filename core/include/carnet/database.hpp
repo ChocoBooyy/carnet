@@ -51,6 +51,9 @@ struct Transaction {
 
 enum class MoveDirection { Up, Down };
 
+// the SQLite library version, for the About box
+std::string sqliteVersion();
+
 class Database {
 public:
     static Database open(const std::filesystem::path& path);

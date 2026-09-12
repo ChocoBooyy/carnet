@@ -65,6 +65,10 @@ void expectOneChange(sqlite3* db, std::string_view what, std::int64_t id) {
 
 }
 
+std::string sqliteVersion() {
+    return sqlite3_libversion();
+}
+
 void Database::Closer::operator()(sqlite3* db) const {
     sqlite3_close(db);
 }

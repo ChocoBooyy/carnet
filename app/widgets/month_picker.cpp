@@ -15,10 +15,10 @@ MonthPicker::MonthPicker(QWidget* parent) : QWidget(parent) {
 
     auto* previous = new QToolButton(this);
     previous->setArrowType(Qt::LeftArrow);
-    previous->setToolTip(tr("Previous month"));
+    previous->setToolTip(tr("Previous month (Ctrl+PgUp)"));
     auto* next = new QToolButton(this);
     next->setArrowType(Qt::RightArrow);
-    next->setToolTip(tr("Next month"));
+    next->setToolTip(tr("Next month (Ctrl+PgDown)"));
     label_ = new QLabel(formatMonth(month_), this);
     label_->setMinimumWidth(120);
     label_->setAlignment(Qt::AlignCenter);

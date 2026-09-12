@@ -12,6 +12,7 @@ add_executable(carnet_tests
     categories_test.cpp
     categorize_test.cpp
     overview_query_test.cpp
+    export_test.cpp
 )
 
 target_link_libraries(carnet_tests PRIVATE carnet_core GTest::gtest_main unofficial::sqlite3::sqlite3)
