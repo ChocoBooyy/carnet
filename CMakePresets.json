@@ -22,18 +22,38 @@
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       }
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "MSVC Release (Ninja)",
+      "inherits": "windows-msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/install"
+      }
     }
   ],
   "buildPresets": [
     {
       "name": "windows-msvc",
       "configurePreset": "windows-msvc"
+    },
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc-release"
     }
   ],
   "testPresets": [
     {
       "name": "windows-msvc",
       "configurePreset": "windows-msvc",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc-release",
       "output": {
         "outputOnFailure": true
       }

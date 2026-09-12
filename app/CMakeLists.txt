@@ -28,7 +28,16 @@ add_executable(carnet WIN32 main.cpp)
 target_link_libraries(carnet PRIVATE carnet_ui)
 
 # copy the Qt runtime next to carnet.exe so it starts from the build folder or Explorer
+# no networking, shader compilers or redistributable installer: Carnet uses none of them
+set(CARNET_DEPLOY_FLAGS --no-translations --no-system-d3d-compiler --no-system-dxc-compiler --no-opengl-sw
+    --no-compiler-runtime --skip-plugin-types tls,networkinformation,generic)
 add_custom_command(TARGET carnet POST_BUILD
-    COMMAND "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_BINS}/windeployqt.exe"
-            --no-translations --no-system-d3d-compiler --no-opengl-sw "$<TARGET_FILE:carnet>"
+    COMMAND "${QT6_INSTALL_PREFIX}/${QT6_INSTALL_BINS}/windeployqt.exe" ${CARNET_DEPLOY_FLAGS} "$<TARGET_FILE:carnet>"
     VERBATIM)
+
+# cmake --install puts carnet.exe and the Qt runtime it needs in one folder, ready to zip
+install(TARGETS carnet RUNTIME DESTINATION .)
+install(FILES $<TARGET_RUNTIME_DLLS:carnet> DESTINATION .)
+list(JOIN CARNET_DEPLOY_FLAGS " " CARNET_DEPLOY_ARGS)
+install(CODE "execute_process(COMMAND \"${QT6_INSTALL_PREFIX}/${QT6_INSTALL_BINS}/windeployqt.exe\" ${CARNET_DEPLOY_ARGS}
+    \"\${CMAKE_INSTALL_PREFIX}/$<TARGET_FILE_NAME:carnet>\" COMMAND_ERROR_IS_FATAL ANY)")
