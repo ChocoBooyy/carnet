@@ -1,8 +1,10 @@
 #include "dialogs/import_dialog.hpp"
 
 #include <QComboBox>
+#include <QDir>
 #include <QFile>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
@@ -37,6 +39,7 @@ ImportDialog::ImportDialog(Database& db, QWidget* parent) : QDialog(parent), db_
     setWindowTitle(tr("Import CSV"));
 
     pathEdit_ = new QLineEdit(this);
+    pathEdit_->setObjectName("fileName");
     pathEdit_->setReadOnly(true);
     auto* browseButton = new QPushButton(tr("Browse..."), this);
     auto* fileRow = new QHBoxLayout;
@@ -85,6 +88,7 @@ ImportDialog::ImportDialog(Database& db, QWidget* parent) : QDialog(parent), db_
     result_->setReadOnly(true);
     result_->setMaximumHeight(90);
     importButton_ = new QPushButton(tr("Import"), this);
+    importButton_->setObjectName("importButton");
     auto* closeButton = new QPushButton(tr("Close"), this);
     auto* buttons = new QHBoxLayout;
     buttons->addWidget(hint_, 1);
@@ -121,22 +125,28 @@ ImportDialog::ImportDialog(Database& db, QWidget* parent) : QDialog(parent), db_
 void ImportDialog::browse() {
     const QString path =
         QFileDialog::getOpenFileName(this, tr("Choose a bank export"), {}, tr("CSV files (*.csv)"));
-    if (path.isEmpty()) {
-        return;
+    if (!path.isEmpty()) {
+        openFile(path);
     }
+}
+
+bool ImportDialog::openFile(const QString& path) {
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) {
         result_->setPlainText(tr("Could not open %1").arg(path));
-        return;
+        return false;
     }
     const QByteArray bytes = file.readAll();
     text_ = toUtf8Text(std::string_view(bytes.constData(), static_cast<std::size_t>(bytes.size())));
-    pathEdit_->setText(path);
+    // the name is what tells files apart; the whole path would mostly show the user's folders
+    pathEdit_->setText(QFileInfo(path).fileName());
+    pathEdit_->setToolTip(QDir::toNativeSeparators(path));
     result_->clear();
     if (savedProfile() == nullptr) {
         suggestFromHeader();
     }
     refreshPreview();
+    return true;
 }
 
 void ImportDialog::suggestFromHeader() {

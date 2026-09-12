@@ -25,6 +25,9 @@ class ImportDialog : public QDialog {
 public:
     explicit ImportDialog(Database& db, QWidget* parent = nullptr);
 
+    // loads a bank export into the preview, as picking it with Browse does
+    bool openFile(const QString& path);
+
 signals:
     void imported(std::chrono::year_month newestMonth);
 

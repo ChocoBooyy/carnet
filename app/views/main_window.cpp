@@ -46,7 +46,7 @@ MainWindow::MainWindow(Database& db, QWidget* parent) : QMainWindow(parent), db_
         askExport(QStringLiteral("transactions"), &MainWindow::exportTransactions);
     });
     auto* exportButton = new QToolButton(central);
-    exportButton->setText(tr("Export..."));
+    exportButton->setText(tr("Export"));
     exportButton->setMenu(exportMenu);
     exportButton->setPopupMode(QToolButton::InstantPopup);
     top->addWidget(exportButton);

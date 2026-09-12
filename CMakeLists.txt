@@ -11,11 +11,16 @@ if(MSVC)
 endif()
 
 option(CARNET_BUILD_TESTS "Build the core unit tests" ON)
+option(CARNET_BUILD_SCREENSHOTS "Build the tool that renders the README screenshots" OFF)
 
 find_package(Qt6 REQUIRED COMPONENTS Widgets)
 
 add_subdirectory(core)
 add_subdirectory(app)
+
+if(CARNET_BUILD_SCREENSHOTS)
+    add_subdirectory(tools/screenshots)
+endif()
 
 if(CARNET_BUILD_TESTS)
     enable_testing()

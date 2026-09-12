@@ -13,10 +13,12 @@ add_executable(carnet_tests
     categorize_test.cpp
     overview_query_test.cpp
     export_test.cpp
+    demo_data_test.cpp
 )
 
 target_link_libraries(carnet_tests PRIVATE carnet_core GTest::gtest_main unofficial::sqlite3::sqlite3)
-target_compile_definitions(carnet_tests PRIVATE CARNET_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data")
+target_compile_definitions(carnet_tests PRIVATE CARNET_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/data"
+    CARNET_DEMO_FILE="${PROJECT_SOURCE_DIR}/docs/demo/demo-bank.csv")
 target_include_directories(carnet_tests PRIVATE ${PROJECT_SOURCE_DIR}/core/src)
 
 include(GoogleTest)
