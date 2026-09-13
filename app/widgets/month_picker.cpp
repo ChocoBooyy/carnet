@@ -4,14 +4,13 @@
 #include <QLabel>
 #include <QToolButton>
 
+#include "carnet/date.hpp"
 #include "models/format.hpp"
 
 namespace carnet {
 
 MonthPicker::MonthPicker(QWidget* parent) : QWidget(parent) {
-    const std::chrono::year_month_day today{
-        std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now())};
-    month_ = today.year() / today.month();
+    month_ = currentMonth();
 
     auto* previous = new QToolButton(this);
     previous->setArrowType(Qt::LeftArrow);

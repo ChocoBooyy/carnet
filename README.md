@@ -1,49 +1,51 @@
 # Carnet
 
-A desktop budget app for Windows. It imports the CSV file your bank lets you export, sorts every
-transaction into a category with rules you write, and shows where your money went each month against
-the budgets you set. Everything stays in one SQLite file on your computer.
+A desktop budget app for Windows, written in C++23 and Qt 6.
+
+Most banks let you download your account history as a CSV file, but the file on its own doesn't say
+much. Carnet imports those files, sorts each transaction into a category using rules you write, and
+shows what came in, what went out and how each category did against its monthly budget. Everything
+stays in a single SQLite file on the computer.
 
 ![The monthly overview](docs/screenshots/overview.png)
 
-## Features
+## What it does
 
-- **Import any bank's CSV.** You map the columns once and Carnet saves the mapping as a profile. When it
-  recognizes the column names (French, Dutch or English), it fills the mapping in for you. Files in
-  UTF-8 or Windows-1252 both work, and rows with a status like "Refused" can be skipped.
-- **Import the same file twice without duplicates.** Each transaction is identified by its account,
-  date, amount and description, and two identical coffees on the same day still count as two.
-- **Categorize with rules.** "Contains *delhaize* -> Groceries", tried in the order you set, ignoring case
-  and accents. Picking a category by hand in the table always wins over the rules.
-- **Keep transfers out of the totals.** Money moved between your own accounts shows in grey and never
-  counts as income or spending.
-- **See the month at a glance.** Income, spent and what is left, spending per category against its
-  budget (red past 100%), and six months of spending next to income.
-- **Export** a month's summary or its transactions as CSV that opens directly in Excel.
-- Remembers the window and the month you were on, with keyboard shortcuts for moving between months
-  (Ctrl+PgUp, Ctrl+PgDown, Ctrl+Home).
+Importing works with any bank as long as it exports CSV. You tell Carnet once which column holds the
+date, the amount and the description, and it keeps that as a profile for next time. For French,
+Dutch or English column names it guesses the mapping for you, and it can skip rows with a status
+such as "Refused". Importing a file twice doesn't create duplicates, but two identical coffees on the
+same day still count as two.
+
+Categories come from rules like *contains "delhaize" -> Groceries*, checked in the order you set and
+ignoring case and accents. You can always override a single transaction by hand. Money moved between
+your own accounts can go in a category that is left out of the totals, so it doesn't look like
+income or spending.
+
+The overview shows income, spending and what's left for the month, one bar per category (red once
+it passes its budget) and the last six months side by side. A month can be exported as CSV, either
+the summary or every transaction, in a format Excel opens directly.
 
 | Transactions | Import | Rules |
 | --- | --- | --- |
 | ![Transactions](docs/screenshots/transactions.png) | ![Import](docs/screenshots/import.png) | ![Rules](docs/screenshots/rules.png) |
 
-## Try it
+## Trying it
 
-Build it (below), start `carnet.exe`, click **Import CSV...** and open
-[`docs/demo/demo-bank.csv`](docs/demo/demo-bank.csv). It is a made-up export in the layout of a Belgian
-bank: Carnet suggests every column and the refused payment to skip, so you only press **Import** and
-name the profile. Then add a few rules under **Rules...** (for example *delhaize* -> Groceries) and set
-budgets in the Categories tab.
+There's a made-up export in [`docs/demo/demo-bank.csv`](docs/demo/demo-bank.csv), laid out like a
+Belgian bank's. Start Carnet, click Import CSV and open it: the columns and the refused payment are
+filled in, so you only press Import and give the profile a name. The screenshots above were made
+from that file.
 
-## Building on Windows
+Ctrl+PgUp and Ctrl+PgDown move between months, Ctrl+Home jumps back to the current one.
 
-You need Visual Studio 2026 with the C++ workload, CMake 3.25 or newer, Qt 6 (the MSVC 64-bit kit, from
-the Qt online installer) and [vcpkg](https://github.com/microsoft/vcpkg), which provides SQLite and
-GoogleTest.
+## Building
 
-A Developer PowerShell for VS 2026 sets `VCPKG_ROOT` to the vcpkg that ships with Visual Studio. To
-point at your own vcpkg checkout and your Qt install, create a `CMakeUserPresets.json` next to
-`CMakePresets.json` (it is gitignored):
+On Windows you need Visual Studio 2026 with the C++ workload, CMake 3.25+, Qt 6 (the MSVC 64-bit kit
+from the Qt installer) and [vcpkg](https://github.com/microsoft/vcpkg) for SQLite and GoogleTest.
+
+The presets expect `VCPKG_ROOT` to be set, which a Developer PowerShell for VS 2026 does. To use your
+own vcpkg or tell CMake where Qt is, add a `CMakeUserPresets.json` (it's gitignored):
 
 ```json
 {
@@ -61,53 +63,37 @@ point at your own vcpkg checkout and your Qt install, create a `CMakeUserPresets
 }
 ```
 
-Then, from a Developer PowerShell for VS 2026:
-
 ```
 cmake --preset local
 cmake --build --preset local
 ctest --preset local
 ```
 
-`build/local/app/carnet.exe` runs straight from the build folder. In CLion, pick the Visual Studio
-toolchain and the preset.
+The app ends up in `build/local/app/carnet.exe` and runs from there. For a copy you can zip and move
+to another PC, use the `windows-msvc-release` preset (or a `local-release` one inheriting it) and then
+`cmake --install build/local-release`, which collects the exe and the Qt and SQLite DLLs in
+`build/install`. The other PC needs the Visual C++ Redistributable, which it most likely has already.
 
-### A folder to share
+To regenerate the screenshots after changing the UI, configure with `-DCARNET_BUILD_SCREENSHOTS=ON`
+and run the `carnet_screenshots` target. It draws the windows from the demo file without putting
+anything on screen.
 
-The `windows-msvc-release` preset (add a `local-release` preset inheriting it, as above, if you use your
-own vcpkg) builds an optimized version, and `cmake --install` gathers `carnet.exe` with the Qt and SQLite
-libraries it needs into `build/install`, ready to zip. The target PC needs the Microsoft Visual C++
-Redistributable, which most Windows installs already have.
+## Notes on the code
 
-```
-cmake --preset local-release
-cmake --build --preset local-release
-cmake --install build/local-release
-```
+The project is split in two. `core/` is plain C++ with no Qt: parsing amounts, dates and CSV,
+import profiles, rules, the database and the monthly totals. `app/` is the Qt Widgets interface
+built on top, using Qt's model/view classes.
 
-The screenshots above come from the demo file. To regenerate them after a UI change, configure with
-`-DCARNET_BUILD_SCREENSHOTS=ON`, build the `carnet_screenshots` target and run it: it draws the real
-windows without showing them and writes `docs/screenshots/*.png`.
+Amounts are kept as whole cents in a 64-bit integer from the moment they're read, never as floating
+point. Parsing a bank file returns `std::expected`, so a broken row comes back as an error with its
+line number rather than an exception; only real database failures throw, and the interface turns
+those into a message box.
 
-## How it is built
+The schema is versioned with `PRAGMA user_version` and upgraded by numbered migrations, each in its
+own transaction. The monthly totals are SQL queries, and their test checks them against a month worked
+out by hand. The charts are small `QPainter` widgets rather than Qt Charts.
 
-- **Two layers.** `core/` is a plain C++23 library with no Qt in it: amount, date and CSV parsing, import
-  profiles, deduplication, rules, the monthly totals and the CSV export. `app/` is the Qt Widgets
-  interface on top of it, using Qt's model/view classes.
-- **Errors are values.** Parsers return `std::expected<T, ParseError>`, so a bad row in a bank file is
-  reported with its line number instead of throwing. Only real storage failures throw, and the UI turns
-  them into a message.
-- **Money is an integer count of cents** from the moment it is parsed. It never passes through a
-  floating-point number.
-- **SQLite with numbered migrations.** The schema version lives in `PRAGMA user_version`, and each
-  migration runs once in a transaction. Foreign keys are on for every connection, and the monthly
-  totals are SQL queries.
-- **Hand-drawn charts.** The bars and the six-month chart are small `QPainter` widgets instead of the Qt
-  Charts module.
-- **Tested.** GoogleTest covers the core, including a month whose totals were worked out by hand, and
-  Qt Test covers the models, widgets and windows (settings, shortcuts, export). The Qt tests run
-  offscreen and never touch your real data folder.
+The core has GoogleTest tests and the interface has Qt Test tests (models, widgets, dialogs, the
+main window's settings and export). The Qt tests run offscreen and use their own settings folder.
 
-## License notes
-
-Carnet links Qt dynamically under the LGPL v3 and uses SQLite, which is in the public domain.
+Qt is linked dynamically under the LGPL v3. SQLite is public domain.

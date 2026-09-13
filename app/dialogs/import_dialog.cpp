@@ -2,7 +2,6 @@
 
 #include <QComboBox>
 #include <QDir>
-#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFormLayout>
@@ -38,12 +37,12 @@ constexpr int newProfile = -1;
 ImportDialog::ImportDialog(Database& db, QWidget* parent) : QDialog(parent), db_(db) {
     setWindowTitle(tr("Import CSV"));
 
-    pathEdit_ = new QLineEdit(this);
-    pathEdit_->setObjectName("fileName");
-    pathEdit_->setReadOnly(true);
+    fileEdit_ = new QLineEdit(this);
+    fileEdit_->setObjectName("fileName");
+    fileEdit_->setReadOnly(true);
     auto* browseButton = new QPushButton(tr("Browse..."), this);
     auto* fileRow = new QHBoxLayout;
-    fileRow->addWidget(pathEdit_, 1);
+    fileRow->addWidget(fileEdit_, 1);
     fileRow->addWidget(browseButton);
 
     accountBox_ = new QComboBox(this);
@@ -113,7 +112,7 @@ ImportDialog::ImportDialog(Database& db, QWidget* parent) : QDialog(parent), db_
 
     connect(browseButton, &QPushButton::clicked, this, &ImportDialog::browse);
     connect(profileBox_, &QComboBox::currentIndexChanged, this, &ImportDialog::profileChosen);
-    connect(separatorBox_, &QComboBox::currentIndexChanged, this, &ImportDialog::refreshPreview);
+    connect(separatorBox_, &QComboBox::currentIndexChanged, this, &ImportDialog::separatorChanged);
     connect(skipBox_, &QSpinBox::valueChanged, this, &ImportDialog::refreshPreview);
     connect(skipStatusEdit_, &QLineEdit::textChanged, this, &ImportDialog::updateState);
     connect(accountBox_, &QComboBox::currentTextChanged, this, &ImportDialog::updateState);
@@ -131,16 +130,16 @@ void ImportDialog::browse() {
 }
 
 bool ImportDialog::openFile(const QString& path) {
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
+    auto text = readTextFile(path);
+    if (!text) {
         result_->setPlainText(tr("Could not open %1").arg(path));
         return false;
     }
-    const QByteArray bytes = file.readAll();
-    text_ = toUtf8Text(std::string_view(bytes.constData(), static_cast<std::size_t>(bytes.size())));
+    text_ = std::move(*text);
+    parseText();
     // the name is what tells files apart; the whole path would mostly show the user's folders
-    pathEdit_->setText(QFileInfo(path).fileName());
-    pathEdit_->setToolTip(QDir::toNativeSeparators(path));
+    fileEdit_->setText(QFileInfo(path).fileName());
+    fileEdit_->setToolTip(QDir::toNativeSeparators(path));
     result_->clear();
     if (savedProfile() == nullptr) {
         suggestFromHeader();
@@ -149,13 +148,36 @@ bool ImportDialog::openFile(const QString& path) {
     return true;
 }
 
-void ImportDialog::suggestFromHeader() {
-    const auto rows = parseCsv(text_, separator());
-    const int headerRow = skipBox_->value() - 1;
-    if (!rows || headerRow < 0 || headerRow >= static_cast<int>(rows->size())) {
+void ImportDialog::parseText() {
+    rows_.clear();
+    csvProblem_.clear();
+    if (text_.empty()) {
         return;
     }
-    roles_ = suggestRoles((*rows)[static_cast<std::size_t>(headerRow)].fields);
+    auto rows = parseCsv(text_, separator());
+    if (rows) {
+        rows_ = std::move(*rows);
+    } else {
+        csvProblem_ = QString::fromStdString(rows.error().message);
+    }
+}
+
+void ImportDialog::separatorChanged() {
+    parseText();
+    // columns split on the old separator mean nothing now
+    roles_.clear();
+    if (savedProfile() == nullptr) {
+        suggestFromHeader();
+    }
+    refreshPreview();
+}
+
+void ImportDialog::suggestFromHeader() {
+    const int headerRow = skipBox_->value() - 1;
+    if (headerRow < 0 || headerRow >= static_cast<int>(rows_.size())) {
+        return;
+    }
+    roles_ = suggestRoles(rows_[static_cast<std::size_t>(headerRow)].fields);
     skipStatusEdit_->clear();
     const auto status = std::ranges::find(roles_, ColumnRole::Status);
     if (status != roles_.end()) {
@@ -191,6 +213,7 @@ void ImportDialog::profileChosen() {
         skipBox_->setValue(profile->skipLines);
     }
     skipStatusEdit_->setText(QString::fromStdString(profile->skipStatus));
+    parseText();
     roles_ = rolesFromProfile(*profile, static_cast<int>(roles_.size()));
     refreshPreview();
 }
@@ -199,22 +222,15 @@ void ImportDialog::refreshPreview() {
     preview_->clear();
     preview_->setRowCount(0);
     preview_->setColumnCount(0);
-    csvProblem_.clear();
-    if (text_.empty()) {
+    if (rows_.empty()) {
         updateState();
         return;
     }
 
-    const auto rows = parseCsv(text_, separator());
-    if (!rows) {
-        csvProblem_ = QString::fromStdString(rows.error().message);
-        updateState();
-        return;
-    }
-    const int shown = std::min(static_cast<int>(rows->size()), previewRows);
+    const int shown = std::min(static_cast<int>(rows_.size()), previewRows);
     int columns = 0;
     for (int r = 0; r < shown; ++r) {
-        columns = std::max(columns, static_cast<int>((*rows)[static_cast<std::size_t>(r)].fields.size()));
+        columns = std::max(columns, static_cast<int>(rows_[static_cast<std::size_t>(r)].fields.size()));
     }
     roles_.resize(static_cast<std::size_t>(std::max(columns, static_cast<int>(roles_.size()))),
                   ColumnRole::Ignore);
@@ -237,7 +253,7 @@ void ImportDialog::refreshPreview() {
     }
     const QColor skipped = palette().color(QPalette::Disabled, QPalette::Text);
     for (int r = 0; r < shown; ++r) {
-        const auto& fields = (*rows)[static_cast<std::size_t>(r)].fields;
+        const auto& fields = rows_[static_cast<std::size_t>(r)].fields;
         for (int c = 0; c < static_cast<int>(fields.size()); ++c) {
             auto* item = new QTableWidgetItem(QString::fromStdString(fields[static_cast<std::size_t>(c)]));
             if (r < skipBox_->value()) {
@@ -274,12 +290,8 @@ void ImportDialog::suggestSkipStatusFrom(int column) {
     if (!skipStatusEdit_->text().trimmed().isEmpty()) {
         return;
     }
-    const auto rows = parseCsv(text_, separator());
-    if (!rows) {
-        return;
-    }
     std::vector<std::string> values;
-    for (const CsvRow& row : *rows | std::views::drop(skipBox_->value())) {
+    for (const CsvRow& row : rows_ | std::views::drop(skipBox_->value())) {
         if (static_cast<std::size_t>(column) < row.fields.size()) {
             values.push_back(row.fields[static_cast<std::size_t>(column)]);
         }

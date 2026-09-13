@@ -135,4 +135,22 @@ std::string toIsoString(std::chrono::year_month_day date) {
     return std::format("{:%F}", date);
 }
 
+std::string toIsoMonth(std::chrono::year_month month) {
+    return toIsoString(month / 1).substr(0, 7);
+}
+
+std::optional<std::chrono::year_month> parseIsoMonth(std::string_view text) {
+    const auto day = parseDate(std::string(text) + "-01", "yyyy-MM-dd");
+    if (!day) {
+        return std::nullopt;
+    }
+    return day->year() / day->month();
+}
+
+std::chrono::year_month currentMonth() {
+    const std::chrono::year_month_day today{
+        std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now())};
+    return today.year() / today.month();
+}
+
 }

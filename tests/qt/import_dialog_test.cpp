@@ -4,14 +4,11 @@
 #include <QPushButton>
 #include <QStandardPaths>
 #include <QTableWidget>
-#include <QTemporaryDir>
 #include <QTest>
-
-#include <filesystem>
-#include <optional>
 
 #include "carnet/database.hpp"
 #include "dialogs/import_dialog.hpp"
+#include "test_database.hpp"
 
 using carnet::ImportDialog;
 
@@ -24,10 +21,10 @@ private slots:
     void demoFileIsReadyToImport();
     void missingFileIsReported();
     void showsOnlyTheFileName();
+    void separatorChangeRereadsTheFile();
 
 private:
-    QTemporaryDir dir_;
-    std::optional<carnet::Database> db_;
+    TestDatabase db_;
 };
 
 void ImportDialogTest::initTestCase() {
@@ -35,10 +32,7 @@ void ImportDialogTest::initTestCase() {
 }
 
 void ImportDialogTest::init() {
-    db_.reset();
-    const std::filesystem::path path(dir_.filePath("carnet.db").toStdWString());
-    std::filesystem::remove(path);
-    db_ = carnet::Database::open(path);
+    db_.fresh();
 }
 
 void ImportDialogTest::demoFileIsReadyToImport() {
@@ -58,7 +52,7 @@ void ImportDialogTest::demoFileIsReadyToImport() {
 
 void ImportDialogTest::missingFileIsReported() {
     ImportDialog dialog(*db_);
-    QVERIFY(!dialog.openFile(dir_.filePath("nope.csv")));
+    QVERIFY(!dialog.openFile(db_.filePath("nope.csv")));
 }
 
 void ImportDialogTest::showsOnlyTheFileName() {
@@ -67,6 +61,26 @@ void ImportDialogTest::showsOnlyTheFileName() {
     auto* field = dialog.findChild<QLineEdit*>("fileName");
     QCOMPARE(field->text(), QString("demo-bank.csv"));
     QVERIFY(field->toolTip().endsWith("demo-bank.csv"));
+}
+
+void ImportDialogTest::separatorChangeRereadsTheFile() {
+    ImportDialog dialog(*db_);
+    QVERIFY(dialog.openFile(CARNET_DEMO_FILE));
+    auto* preview = dialog.findChild<QTableWidget*>();
+    QCOMPARE(preview->columnCount(), 13);
+    QComboBox* separator = nullptr;
+    for (auto* box : dialog.findChildren<QComboBox*>()) {
+        if (box->findData(";") >= 0 && box->findData(",") >= 0 && box->parent() == &dialog &&
+            box->currentData().toString() == ";") {
+            separator = box;
+        }
+    }
+    QVERIFY(separator != nullptr);
+    separator->setCurrentIndex(separator->findData(","));
+    QVERIFY(preview->columnCount() != 13);
+    separator->setCurrentIndex(separator->findData(";"));
+    QCOMPARE(preview->columnCount(), 13);
+    QCOMPARE(qobject_cast<QComboBox*>(preview->cellWidget(0, 1))->currentText(), QString("Date"));
 }
 
 QTEST_MAIN(ImportDialogTest)

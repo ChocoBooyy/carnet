@@ -2,14 +2,12 @@
 #include <QScrollArea>
 #include <QScrollBar>
 #include <QTabWidget>
-#include <QTemporaryDir>
 #include <QTest>
 
 #include <chrono>
-#include <filesystem>
-#include <optional>
 
 #include "carnet/database.hpp"
+#include "test_database.hpp"
 #include "views/overview_tab.hpp"
 #include "widgets/chart_colors.hpp"
 
@@ -31,15 +29,11 @@ private:
         return tab.findChild<QLabel*>(name)->text();
     }
 
-    QTemporaryDir dir_;
-    std::optional<carnet::Database> db_;
+    TestDatabase db_;
 };
 
 void OverviewTabTest::init() {
-    db_.reset();
-    const std::filesystem::path path(dir_.filePath("carnet.db").toStdWString());
-    std::filesystem::remove(path);
-    db_ = carnet::Database::open(path);
+    db_.fresh();
     db_->importTransactions("Current", {carnet::TxnDraft{2026y / March / 2, 215000, "Salary", "", 1},
                                         carnet::TxnDraft{2026y / March / 5, -32050, "Rent part", "", 1}});
 }
@@ -68,11 +62,7 @@ void OverviewTabTest::negativeLeftIsRed() {
 void OverviewTabTest::reloadFollowsDatabase() {
     OverviewTab tab(*db_);
     tab.setMonth(2026y / March);
-    for (const carnet::Category& c : db_->categories()) {
-        if (c.name == "Transfers") {
-            db_->setCategory(db_->transactionsInMonth(2026y / March)[1].id, c.id);
-        }
-    }
+    db_->setCategory(db_->transactionsInMonth(2026y / March)[1].id, db_.categoryId("Transfers"));
     tab.reload();
     QCOMPARE(text(tab, "spent"), QString("0,00 ") + QChar(0x20AC));
 }

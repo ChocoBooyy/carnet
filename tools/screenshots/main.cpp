@@ -2,7 +2,6 @@
 // real platform but never shown, so running it does not disturb the desktop.
 #include <QApplication>
 #include <QDir>
-#include <QFile>
 #include <QStandardPaths>
 #include <QTabWidget>
 #include <QTemporaryDir>
@@ -45,15 +44,6 @@ void silenceCrashDialogs() {
 #endif
 }
 
-std::string readDemo(const QString& path) {
-    QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) {
-        return {};
-    }
-    const QByteArray bytes = file.readAll();
-    return carnet::toUtf8Text(std::string_view(bytes.constData(), static_cast<std::size_t>(bytes.size())));
-}
-
 bool fillDemo(carnet::Database& db, const QString& demoPath) {
     carnet::ImportProfile profile;
     profile.name = "Demo bank";
@@ -63,7 +53,11 @@ bool fillDemo(carnet::Database& db, const QString& demoPath) {
     profile.colDesc = 10;
     profile.colStatus = 11;
     profile.skipStatus = "Refus\xC3\xA9";
-    const auto statement = carnet::readStatement(readDemo(demoPath), profile);
+    const auto text = carnet::readTextFile(demoPath);
+    if (!text) {
+        return false;
+    }
+    const auto statement = carnet::readStatement(*text, profile);
     if (!statement) {
         return false;
     }

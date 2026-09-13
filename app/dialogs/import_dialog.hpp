@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 
+#include "carnet/csv.hpp"
 #include "carnet/database.hpp"
 #include "dialogs/column_roles.hpp"
 
@@ -35,6 +36,8 @@ private:
     void browse();
     void loadProfiles(const QString& select);
     void profileChosen();
+    void parseText();
+    void separatorChanged();
     void refreshPreview();
     void updateState();
     void suggestSkipStatusFrom(int column);
@@ -46,11 +49,12 @@ private:
 
     Database& db_;
     std::string text_;
+    std::vector<CsvRow> rows_;
     std::vector<ImportProfile> profiles_;
     std::vector<ColumnRole> roles_;
     QString csvProblem_;
 
-    QLineEdit* pathEdit_;
+    QLineEdit* fileEdit_;
     QComboBox* accountBox_;
     QComboBox* profileBox_;
     QComboBox* separatorBox_;

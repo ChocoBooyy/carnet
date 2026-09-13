@@ -2,6 +2,7 @@
 
 #include <chrono>
 #include <expected>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -15,5 +16,11 @@ std::expected<std::chrono::year_month_day, ParseError> parseDate(std::string_vie
                                                                  std::string_view format);
 
 std::string toIsoString(std::chrono::year_month_day date);
+
+// "2026-09", the form a month is saved in
+std::string toIsoMonth(std::chrono::year_month month);
+std::optional<std::chrono::year_month> parseIsoMonth(std::string_view text);
+
+std::chrono::year_month currentMonth();
 
 }

@@ -85,11 +85,8 @@ MainWindow::MainWindow(Database& db, QWidget* parent) : QMainWindow(parent), db_
                 [this] { monthPicker_->setMonth(month() - std::chrono::months{1}); });
     addShortcut("nextMonth", QKeySequence(Qt::CTRL | Qt::Key_PageDown),
                 [this] { monthPicker_->setMonth(month() + std::chrono::months{1}); });
-    addShortcut("currentMonth", QKeySequence(Qt::CTRL | Qt::Key_Home), [this] {
-        const std::chrono::year_month_day today{
-            std::chrono::floor<std::chrono::days>(std::chrono::system_clock::now())};
-        monthPicker_->setMonth(today.year() / today.month());
-    });
+    addShortcut("currentMonth", QKeySequence(Qt::CTRL | Qt::Key_Home),
+                [this] { monthPicker_->setMonth(currentMonth()); });
     addShortcut("import", QKeySequence(Qt::CTRL | Qt::Key_I), [this] { openImport(); });
     addShortcut("rules", QKeySequence(Qt::CTRL | Qt::Key_R), [this] { openRules(); });
     addShortcut("export", QKeySequence(Qt::CTRL | Qt::Key_E), [exportButton] { exportButton->showMenu(); });
@@ -118,20 +115,20 @@ void MainWindow::openAbout() {
 void MainWindow::restoreSettings() {
     const QSettings settings(settingsPath(), QSettings::IniFormat);
     restoreGeometry(settings.value("window/geometry").toByteArray());
+    // the month goes first: showing the Overview tab reloads it, and it must have a month by then
+    monthPicker_->setMonth(parseIsoMonth(settings.value("window/month").toString().toStdString())
+                               .value_or(monthPicker_->month()));
     const int tab = settings.value("window/tab", tabs_->currentIndex()).toInt();
     if (tab >= 0 && tab < tabs_->count()) {
         tabs_->setCurrentIndex(tab);
     }
-    // anything unreadable keeps the picker on the current month
-    const auto day = parseDate(settings.value("window/month").toString().toStdString() + "-01", "yyyy-MM-dd");
-    monthPicker_->setMonth(day ? day->year() / day->month() : monthPicker_->month());
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
     QSettings settings(settingsPath(), QSettings::IniFormat);
     settings.setValue("window/geometry", saveGeometry());
     settings.setValue("window/tab", tabs_->currentIndex());
-    settings.setValue("window/month", QString::fromStdString(toIsoString(month() / 1).substr(0, 7)));
+    settings.setValue("window/month", QString::fromStdString(toIsoMonth(month())));
     QMainWindow::closeEvent(event);
 }
 
@@ -180,7 +177,7 @@ bool MainWindow::exportTransactions(const QString& path) {
 }
 
 void MainWindow::askExport(const QString& kind, bool (MainWindow::*write)(const QString&)) {
-    const QString isoMonth = QString::fromStdString(toIsoString(month() / 1).substr(0, 7));
+    const QString isoMonth = QString::fromStdString(toIsoMonth(month()));
     const QString path = QFileDialog::getSaveFileName(
         this, tr("Export"), QDir::home().filePath(QString("carnet-%1-%2.csv").arg(isoMonth, kind)),
         tr("CSV files (*.csv)"));

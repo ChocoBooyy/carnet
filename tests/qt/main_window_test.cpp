@@ -4,16 +4,14 @@
 #include <QSettings>
 #include <QStandardPaths>
 #include <QTabWidget>
-#include <QTemporaryDir>
 #include <QTest>
 
 #include <chrono>
-#include <filesystem>
-#include <optional>
 
 #include "app_paths.hpp"
 #include "carnet/database.hpp"
 #include "carnet/export.hpp"
+#include "test_database.hpp"
 #include "views/main_window.hpp"
 #include "widgets/month_picker.hpp"
 
@@ -39,8 +37,7 @@ private:
     static std::string read(const QString& path);
     static void showSeptember(MainWindow& window);
 
-    QTemporaryDir dir_;
-    std::optional<carnet::Database> db_;
+    TestDatabase db_;
 };
 
 void MainWindowTest::initTestCase() {
@@ -50,10 +47,7 @@ void MainWindowTest::initTestCase() {
 
 void MainWindowTest::init() {
     QFile::remove(carnet::settingsPath());
-    db_.reset();
-    const std::filesystem::path path(dir_.filePath("carnet.db").toStdWString());
-    std::filesystem::remove(path);
-    db_ = carnet::Database::open(path);
+    db_.fresh();
     db_->importTransactions("Current",
                             {carnet::TxnDraft{2026y / September / 2, 215000, "Salary", "", 1},
                              carnet::TxnDraft{2026y / September / 5, -3250, "Bakery; corner", "", 1}});
@@ -74,7 +68,7 @@ void MainWindowTest::showSeptember(MainWindow& window) {
 void MainWindowTest::exportWritesSummary() {
     MainWindow window(*db_);
     showSeptember(window);
-    const QString path = dir_.filePath("summary.csv");
+    const QString path = db_.filePath("summary.csv");
     QVERIFY(window.exportSummary(path));
     QCOMPARE(read(path),
              carnet::summaryCsv(2026y / September, db_->monthOverview(2026y / September), "Uncategorized"));
@@ -83,7 +77,7 @@ void MainWindowTest::exportWritesSummary() {
 void MainWindowTest::exportWritesTransactions() {
     MainWindow window(*db_);
     showSeptember(window);
-    const QString path = dir_.filePath("transactions.csv");
+    const QString path = db_.filePath("transactions.csv");
     QVERIFY(window.exportTransactions(path));
     QCOMPARE(read(path), carnet::transactionsCsv(db_->transactionsInMonth(2026y / September),
                                                  db_->categories(), "Uncategorized"));
@@ -92,7 +86,7 @@ void MainWindowTest::exportWritesTransactions() {
 void MainWindowTest::exportFailureIsReported() {
     MainWindow window(*db_);
     showSeptember(window);
-    const QString path = dir_.filePath("missing/folder/summary.csv");
+    const QString path = db_.filePath("missing/folder/summary.csv");
     QVERIFY(!window.exportSummary(path));
     QVERIFY(!QFile::exists(path));
 }

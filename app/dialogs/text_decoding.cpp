@@ -1,6 +1,7 @@
 #include "dialogs/text_decoding.hpp"
 
 #include <QByteArrayView>
+#include <QFile>
 #include <QStringDecoder>
 
 #include <array>
@@ -54,6 +55,15 @@ std::string toUtf8Text(std::string_view bytes) {
         }
     }
     return result;
+}
+
+std::optional<std::string> readTextFile(const QString& path) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return std::nullopt;
+    }
+    const QByteArray bytes = file.readAll();
+    return toUtf8Text(std::string_view(bytes.constData(), static_cast<std::size_t>(bytes.size())));
 }
 
 }

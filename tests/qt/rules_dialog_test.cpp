@@ -2,14 +2,13 @@
 #include <QLineEdit>
 #include <QListWidget>
 #include <QPushButton>
-#include <QTemporaryDir>
 #include <QTest>
 
-#include <filesystem>
 #include <optional>
 
 #include "carnet/database.hpp"
 #include "dialogs/rules_dialog.hpp"
+#include "test_database.hpp"
 
 using carnet::RulesDialog;
 
@@ -30,15 +29,11 @@ private:
     void select(RulesDialog& dialog, const QString& category) const;
     void setBudget(RulesDialog& dialog, const QString& category, const QString& text) const;
 
-    QTemporaryDir dir_;
-    std::optional<carnet::Database> db_;
+    TestDatabase db_;
 };
 
 void RulesDialogTest::init() {
-    db_.reset();
-    const std::filesystem::path path(dir_.filePath("carnet.db").toStdWString());
-    std::filesystem::remove(path);
-    db_ = carnet::Database::open(path);
+    db_.fresh();
 }
 
 QListWidgetItem* RulesDialogTest::categoryItem(RulesDialog& dialog, const QString& name) const {
@@ -108,11 +103,7 @@ void RulesDialogTest::budgetInputForms() {
 }
 
 void RulesDialogTest::badBudgetIsRejected() {
-    for (const carnet::Category& category : db_->categories()) {
-        if (category.name == "Rent") {
-            db_->setCategoryBudget(category.id, 1000);
-        }
-    }
+    db_->setCategoryBudget(db_.categoryId("Rent"), 1000);
     RulesDialog dialog(*db_);
     for (const QString& text : {QString("abc"), QString("0"), QString("-5")}) {
         setBudget(dialog, "Rent", text);

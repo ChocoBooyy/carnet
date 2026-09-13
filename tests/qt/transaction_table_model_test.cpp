@@ -3,15 +3,13 @@
 #include <QGuiApplication>
 #include <QPalette>
 #include <QSignalSpy>
-#include <QTemporaryDir>
 #include <QTest>
 
 #include <chrono>
-#include <filesystem>
-#include <optional>
 
 #include "carnet/database.hpp"
 #include "models/transaction_table_model.hpp"
+#include "test_database.hpp"
 
 using namespace std::chrono;
 using carnet::TransactionTableModel;
@@ -34,38 +32,12 @@ private slots:
     void incomeReadableInDarkMode();
 
 private:
-    std::filesystem::path dbPath() const;
-    std::int64_t category(const std::string& name) const;
-    void reopen();
-
-    QTemporaryDir dir_;
-    std::optional<carnet::Database> db_;
+    TestDatabase db_;
 };
 
-std::filesystem::path TransactionTableModelTest::dbPath() const {
-    return std::filesystem::path(dir_.filePath("carnet.db").toStdWString());
-}
-
-std::int64_t TransactionTableModelTest::category(const std::string& name) const {
-    for (const carnet::Category& c : db_->categories()) {
-        if (c.name == name) {
-            return c.id;
-        }
-    }
-    QTest::qFail("no such category", __FILE__, __LINE__);
-    return 0;
-}
-
-void TransactionTableModelTest::reopen() {
-    db_.reset();
-    db_ = carnet::Database::open(dbPath());
-}
-
 void TransactionTableModelTest::init() {
-    db_.reset();
-    std::filesystem::remove(dbPath());
-    db_ = carnet::Database::open(dbPath());
-    db_->addRule("coffee", category("Eating out"));
+    db_.fresh();
+    db_->addRule("coffee", db_.categoryId("Eating out"));
     db_->importTransactions("Current",
                             {carnet::TxnDraft{2026y / March / 5, -320, "Coffee", "BAKERY DUPONT", 1},
                              carnet::TxnDraft{2026y / March / 2, 215000, "Salary March", "ACME SPRL", 1},
@@ -112,13 +84,13 @@ void TransactionTableModelTest::sortsByRawValues() {
 }
 
 void TransactionTableModelTest::setCategoryPersists() {
-    const auto leisure = category("Leisure");
+    const auto leisure = db_.categoryId("Leisure");
     {
         TransactionTableModel model(*db_);
         model.setMonth(2026y / March);
         QVERIFY(model.setData(model.index(1, TransactionTableModel::CategoryColumn), qint64(leisure)));
     }
-    reopen();
+    db_.reopen();
     TransactionTableModel model(*db_);
     model.setMonth(2026y / March);
     const QModelIndex cell = model.index(1, TransactionTableModel::CategoryColumn);
@@ -131,7 +103,7 @@ void TransactionTableModelTest::automaticHandsBack() {
     TransactionTableModel model(*db_);
     model.setMonth(2026y / March);
     const QModelIndex cell = model.index(1, TransactionTableModel::CategoryColumn);
-    QVERIFY(model.setData(cell, qint64(category("Leisure"))));
+    QVERIFY(model.setData(cell, qint64(db_.categoryId("Leisure"))));
     QVERIFY(model.setData(cell, TransactionTableModel::automaticChoice));
     QCOMPARE(cell.data().toString(), QString("Eating out"));
     QCOMPARE(cell.data(Qt::EditRole).toLongLong(), TransactionTableModel::automaticChoice);
@@ -167,7 +139,7 @@ void TransactionTableModelTest::descriptionTooltipShowsFullText() {
 }
 
 void TransactionTableModelTest::greysRowsLeftOutOfTotals() {
-    db_->setCategory(db_->transactionsInMonth(2026y / March)[0].id, category("Transfers"));
+    db_->setCategory(db_->transactionsInMonth(2026y / March)[0].id, db_.categoryId("Transfers"));
     TransactionTableModel model(*db_);
     model.setMonth(2026y / March);
     const QColor grey = QPalette().color(QPalette::Disabled, QPalette::Text);

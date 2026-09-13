@@ -330,12 +330,8 @@ std::optional<std::int64_t> RulesDialog::selectedId(const QListWidget* list) con
 }
 
 QString RulesDialog::categoryName(std::int64_t id) const {
-    for (const Category& category : categories_) {
-        if (category.id == id) {
-            return QString::fromStdString(category.name);
-        }
-    }
-    return {};
+    const auto found = std::ranges::find(categories_, id, &Category::id);
+    return found == categories_.end() ? QString() : QString::fromStdString(found->name);
 }
 
 }

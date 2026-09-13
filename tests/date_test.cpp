@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <optional>
 #include <string>
 
 #include "carnet/date.hpp"
@@ -69,6 +70,23 @@ TEST(ParseDate, RejectsUnsupportedFormats) {
 TEST(ToIsoString, PadsMonthAndDay) {
     EXPECT_EQ(toIsoString(2026y / March / 4), "2026-03-04");
     EXPECT_EQ(toIsoString(2026y / December / 31), "2026-12-31");
+}
+
+TEST(IsoMonth, RoundTrips) {
+    EXPECT_EQ(toIsoMonth(2026y / March), "2026-03");
+    EXPECT_EQ(parseIsoMonth("2025-12"), std::optional(2025y / December));
+    EXPECT_EQ(parseIsoMonth(toIsoMonth(2026y / January)), std::optional(2026y / January));
+}
+
+TEST(IsoMonth, RejectsAnythingElse) {
+    for (const char* text : {"", "garbage", "2026-13", "2026-3", "2026-03-01", "26-03"}) {
+        EXPECT_EQ(parseIsoMonth(text), std::nullopt) << text;
+    }
+}
+
+TEST(CurrentMonth, MatchesTheClock) {
+    const year_month_day today{floor<days>(system_clock::now())};
+    EXPECT_EQ(currentMonth(), today.year() / today.month());
 }
 
 }
