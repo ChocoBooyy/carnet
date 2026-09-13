@@ -32,8 +32,8 @@ the summary or every transaction, in a format Excel opens directly.
 
 ## Trying it
 
-There's a made-up export in [`docs/demo/demo-bank.csv`](docs/demo/demo-bank.csv), laid out like a
-Belgian bank's. Start Carnet, click Import CSV and open it: the columns and the refused payment are
+There's a made-up export in [`docs/demo/demo-bank.csv`](docs/demo/demo-bank.csv), laid out the way
+many European banks export. Start Carnet, click Import CSV and open it: the columns and the refused payment are
 filled in, so you only press Import and give the profile a name. The screenshots above were made
 from that file.
 

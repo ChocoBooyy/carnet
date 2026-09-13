@@ -114,7 +114,7 @@ std::vector<ColumnRole> suggestRoles(std::span<const std::string> header) {
 }
 
 std::string suggestSkipStatus(std::span<const std::string> values) {
-    // French, Dutch and English, the languages Belgian banks export in
+    // French, Dutch and English, the languages the header suggestions cover
     constexpr std::array<std::string_view, 5> refusals{"refus", "rejet", "reject", "geweigerd", "declin"};
     for (const std::string& value : values) {
         const std::string folded = foldText(value);
