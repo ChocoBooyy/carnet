@@ -20,9 +20,10 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
            "and see where the money went each month. Everything stays in one file on this computer."),
         this);
     description->setWordWrap(true);
-    auto* credits = new QLabel(tr("Built with Qt %1 (LGPL v3) and SQLite %2 (public domain).")
-                                   .arg(qVersion(), QString::fromStdString(sqliteVersion())),
-                               this);
+    auto* credits = new QLabel(
+        tr("Open source under the MIT license. Built with Qt %1 (LGPL v3) and SQLite %2 (public domain).")
+            .arg(qVersion(), QString::fromStdString(sqliteVersion())),
+        this);
     credits->setWordWrap(true);
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close, this);
 

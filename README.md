@@ -96,4 +96,7 @@ out by hand. The charts are small `QPainter` widgets rather than Qt Charts.
 The core has GoogleTest tests and the interface has Qt Test tests (models, widgets, dialogs, the
 main window's settings and export). The Qt tests run offscreen and use their own settings folder.
 
-Qt is linked dynamically under the LGPL v3. SQLite is public domain.
+## License
+
+Carnet is released under the [MIT License](LICENSE). It uses Qt, linked dynamically under the LGPL v3,
+and SQLite, which is in the public domain.

@@ -38,6 +38,7 @@ add_custom_command(TARGET carnet POST_BUILD
 # cmake --install puts carnet.exe and the Qt runtime it needs in one folder, ready to zip
 install(TARGETS carnet RUNTIME DESTINATION .)
 install(FILES $<TARGET_RUNTIME_DLLS:carnet> DESTINATION .)
+install(FILES ${PROJECT_SOURCE_DIR}/LICENSE DESTINATION .)
 list(JOIN CARNET_DEPLOY_FLAGS " " CARNET_DEPLOY_ARGS)
 install(CODE "execute_process(COMMAND \"${QT6_INSTALL_PREFIX}/${QT6_INSTALL_BINS}/windeployqt.exe\" ${CARNET_DEPLOY_ARGS}
     \"\${CMAKE_INSTALL_PREFIX}/$<TARGET_FILE_NAME:carnet>\" COMMAND_ERROR_IS_FATAL ANY)")
